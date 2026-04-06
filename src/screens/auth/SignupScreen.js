@@ -1,0 +1,469 @@
+import React, { useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Animated,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../../config/theme';
+import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { extractApiErrorMessage } from '../../utils/apiErrors';
+
+export default function SignupScreen({ navigation }) {
+  const { signUp } = useAuth();
+  const { t, isRTL, toggleLanguage, language } = useLanguage();
+
+  const ROLES = [
+    { value: 'buyer', labelKey: 'roleBuyer', icon: 'cart-outline' },
+    { value: 'seller', labelKey: 'roleSeller', icon: 'pricetag-outline' },
+    { value: 'both', labelKey: 'roleBoth', icon: 'swap-horizontal-outline' },
+  ];
+  const [form, setForm] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    first_name: '',
+    last_name: '',
+    phone_number: '',
+    location: '',
+    role: 'buyer',
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const closeAuthModal = () => {
+    const parent = navigation.getParent();
+    if (parent && parent.canGoBack()) {
+      parent.goBack();
+      return;
+    }
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  };
+
+  const updateForm = (key, value) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const validate = () => {
+    const errs = {};
+    if (!form.email.trim()) errs.email = t('emailRequired');
+    else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = t('emailInvalid');
+    if (!form.password) errs.password = t('passwordRequired');
+    else if (form.password.length < 6) errs.password = t('passwordMin6');
+    if (form.password !== form.confirmPassword)
+      errs.confirmPassword = t('passwordsMismatch');
+    if (!form.first_name.trim()) errs.first_name = t('firstNameRequired');
+    if (!form.phone_number.trim()) errs.phone_number = t('phoneRequired');
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSignup = async () => {
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      const { confirmPassword, ...data } = form;
+      await signUp({ ...data, language });
+      Alert.alert(
+        t('accountCreated'),
+        t('accountCreatedMsg'),
+        [{ text: t('ok'), onPress: closeAuthModal }]
+      );
+    } catch (err) {
+      Alert.alert(t('error'), extractApiErrorMessage(err, t('signupFailed')));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderInput = (key, labelKey, placeholderText, icon, options = {}) => (
+    <View style={styles.inputGroup}>
+      <Text style={[styles.label, isRTL && styles.textRTL]}>
+        {t(labelKey)}
+        {options.required !== false && <Text style={{ color: COLORS.error }}>{t('required')}</Text>}
+      </Text>
+      <View style={[styles.inputContainer, errors[key] && styles.inputError, isRTL && styles.rowRTL]}>
+        <Ionicons name={icon} size={20} color={COLORS.textLight} />
+        <TextInput
+          style={[styles.input, isRTL && styles.inputRTL]}
+          placeholder={placeholderText}
+          placeholderTextColor={COLORS.textLight}
+          value={form[key]}
+          onChangeText={(v) => updateForm(key, v)}
+          autoCapitalize={options.autoCapitalize || 'none'}
+          keyboardType={options.keyboardType || 'default'}
+          secureTextEntry={options.secure && !showPassword}
+          autoCorrect={false}
+          textAlign={isRTL ? 'right' : 'left'}
+        />
+        {options.secure && (
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <Ionicons
+              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+              size={20}
+              color={COLORS.textLight}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
+      {errors[key] && <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors[key]}</Text>}
+    </View>
+  );
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Animated.View
+          style={[
+            styles.content,
+            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+          ]}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={[styles.headerTopRow, isRTL && styles.rowRTL]}>
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={() => navigation.goBack()}
+              >
+                <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.langBtn} onPress={toggleLanguage}>
+                <Ionicons name="globe-outline" size={16} color={COLORS.primary} />
+                <Text style={styles.langBtnText}>
+                  {language === 'en' ? t('switchToArabic') : t('switchToEnglish')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.logoRow, isRTL && styles.rowRTL]}>
+              <View style={styles.logoCircle}>
+                <MaterialCommunityIcons name="horse-variant" size={32} color={COLORS.primary} />
+              </View>
+              <Text style={styles.appName}>{t('appName')}</Text>
+            </View>
+            <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('createAccount')}</Text>
+            <Text style={[styles.headerSubtitle, isRTL && styles.textRTL]}>
+              {t('joinTagline')}
+            </Text>
+          </View>
+
+          {/* Form */}
+          <View style={styles.form}>
+            {/* Role Selection */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, isRTL && styles.textRTL]}>{t('role')}</Text>
+              <View style={[styles.roleRow, isRTL && styles.rowReverseWrap]}>
+                {ROLES.map((r) => (
+                  <TouchableOpacity
+                    key={r.value}
+                    style={[
+                      styles.roleChip,
+                      form.role === r.value && styles.roleChipActive,
+                    ]}
+                    onPress={() => updateForm('role', r.value)}
+                  >
+                    <Ionicons
+                      name={r.icon}
+                      size={18}
+                      color={
+                        form.role === r.value
+                          ? COLORS.primary
+                          : COLORS.textSecondary
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.roleText,
+                        form.role === r.value && styles.roleTextActive,
+                      ]}
+                    >
+                      {t(r.labelKey)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={[styles.row, isRTL && styles.rowRTL]}>
+              <View style={{ flex: 1 }}>
+                {renderInput('first_name', 'firstName', t('firstName'), 'person-outline', {
+                  autoCapitalize: 'words',
+                })}
+              </View>
+              <View style={{ flex: 1 }}>
+                {renderInput('last_name', 'lastName', t('lastName'), 'person-outline', {
+                  autoCapitalize: 'words',
+                  required: false,
+                })}
+              </View>
+            </View>
+
+            {renderInput('email', 'email', t('emailPlaceholder'), 'mail-outline', {
+              keyboardType: 'email-address',
+            })}
+            {renderInput('phone_number', 'phoneNumber', t('phoneNumber'), 'call-outline', {
+              keyboardType: 'phone-pad',
+            })}
+            {renderInput('location', 'location', t('location'), 'location-outline', {
+              autoCapitalize: 'words',
+              required: false,
+            })}
+            {renderInput('password', 'password', t('passwordPlaceholder'), 'lock-closed-outline', {
+              secure: true,
+            })}
+            {renderInput(
+              'confirmPassword',
+              'confirmPassword',
+              t('confirmPassword'),
+              'lock-closed-outline',
+              { secure: true }
+            )}
+
+            <TouchableOpacity
+              style={[styles.signupBtn, loading && styles.signupBtnDisabled]}
+              onPress={handleSignup}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.signupBtnText}>{t('createAccount')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Sign In Link */}
+          <View style={[styles.bottomLink, isRTL && styles.rowRTL]}>
+            <Text style={styles.bottomLinkText}>{t('alreadyHaveAccount')}</Text>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Text style={styles.bottomLinkAction}>{t('signIn')}</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xxl,
+  },
+  content: {},
+  header: {
+    marginBottom: SPACING.lg,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.soft,
+  },
+  langBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primaryLight + '15',
+  },
+  langBtnText: {
+    ...FONTS.caption,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  logoCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.primaryLight + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appName: {
+    ...FONTS.h2,
+    color: COLORS.primary,
+  },
+  headerTitle: {
+    ...FONTS.h1,
+    color: COLORS.text,
+  },
+  headerSubtitle: {
+    ...FONTS.body,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
+  },
+  rowRTL: {
+    flexDirection: 'row-reverse',
+  },
+  rowReverseWrap: {
+    flexDirection: 'row-reverse',
+  },
+  textRTL: {
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  inputRTL: {
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  form: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    ...SHADOWS.card,
+  },
+  inputGroup: {
+    marginBottom: SPACING.md,
+  },
+  label: {
+    ...FONTS.caption,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs + 2,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.inputBg,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: Platform.OS === 'ios' ? SPACING.md : SPACING.xs,
+    gap: SPACING.sm,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  inputError: {
+    borderColor: COLORS.error,
+  },
+  input: {
+    flex: 1,
+    ...FONTS.body,
+    color: COLORS.text,
+  },
+  errorText: {
+    ...FONTS.bodySmall,
+    color: COLORS.error,
+    marginTop: SPACING.xs,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  roleRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  roleChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.inputBg,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  roleChipActive: {
+    backgroundColor: COLORS.primaryLight + '15',
+    borderColor: COLORS.primary,
+  },
+  roleText: {
+    ...FONTS.bodySmall,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  roleTextActive: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  signupBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.md + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.sm,
+  },
+  signupBtnDisabled: {
+    opacity: 0.7,
+  },
+  signupBtnText: {
+    ...FONTS.button,
+    color: COLORS.white,
+  },
+  bottomLink: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: SPACING.lg,
+  },
+  bottomLinkText: {
+    ...FONTS.body,
+    color: COLORS.textSecondary,
+  },
+  bottomLinkAction: {
+    ...FONTS.body,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+});
