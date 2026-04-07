@@ -4,7 +4,6 @@ import {
   Alert,
   FlatList,
   RefreshControl,
-  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -21,27 +20,6 @@ import { useLanguage } from '../contexts/LanguageContext';
 import HorseCard from '../components/HorseCard';
 import * as apiService from '../services/api';
 import { extractApiErrorMessage } from '../utils/apiErrors';
-
-const TELEMETRY_STATUS_TTL_MS = 2400;
-let telemetryStatusCache = {
-  message: '',
-  tone: 'info',
-  expiresAt: 0,
-};
-
-function getInitialTelemetryStatus() {
-  if (telemetryStatusCache.expiresAt > Date.now()) {
-    return {
-      message: telemetryStatusCache.message,
-      tone: telemetryStatusCache.tone,
-    };
-  }
-
-  return {
-    message: '',
-    tone: 'info',
-  };
-}
 
 export default function AdminPanelScreen({ navigation, initialTab = 'pending' }) {
   const insets = useSafeAreaInsets();
@@ -77,41 +55,8 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
   const [bulkOperationLoading, setBulkOperationLoading] = useState(false);
   const [purgeConfirmMode, setPurgeConfirmMode] = useState(null);
   const [purgeConfirmText, setPurgeConfirmText] = useState('');
-  const [telemetryActionBusy, setTelemetryActionBusy] = useState(false);
-  const [telemetryActionStatus, setTelemetryActionStatus] = useState(() => getInitialTelemetryStatus());
   const refreshAbortControllerRef = useRef(null);
-  const telemetryActionCooldownRef = useRef(0);
-  const telemetryStatusTimeoutRef = useRef(null);
-  const [telemetrySummary, setTelemetrySummary] = useState({
-    total: 0,
-    avgMs: 0,
-    p95Ms: 0,
-    errorCount: 0,
-    canceledCount: 0,
-    lastStatus: '-',
-    trend: 'insufficient',
-    trendDeltaPct: null,
-    slowEndpoints: [],
-  });
-  const [securityStatus, setSecurityStatus] = useState({
-    purge_confirm_token_strong: false,
-    expiry_purge_enabled: true,
-    restore_window_days: 30,
-  });
-
   const PURGE_KEYWORD = 'PURGE';
-  const TELEMETRY_WARN_MS = 800;
-  const TELEMETRY_CRITICAL_MS = 1500;
-  const MAX_EXPORT_ENTRY_ERROR_LEN = 200;
-
-  const getLatencyTone = useCallback(
-    (valueMs) => {
-      if (valueMs >= TELEMETRY_CRITICAL_MS) return 'critical';
-      if (valueMs >= TELEMETRY_WARN_MS) return 'warning';
-      return 'ok';
-    },
-    [TELEMETRY_CRITICAL_MS, TELEMETRY_WARN_MS]
-  );
 
   useEffect(() => {
     const debounceId = setTimeout(() => {
@@ -120,29 +65,6 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
 
     return () => clearTimeout(debounceId);
   }, [deletedSearchInput]);
-
-  useEffect(() => {
-    return () => {
-      if (telemetryStatusTimeoutRef.current) {
-        clearTimeout(telemetryStatusTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (telemetryActionStatus.message && telemetryStatusCache.expiresAt > Date.now()) {
-      const remainingMs = telemetryStatusCache.expiresAt - Date.now();
-      if (telemetryStatusTimeoutRef.current) {
-        clearTimeout(telemetryStatusTimeoutRef.current);
-      }
-
-      telemetryStatusTimeoutRef.current = setTimeout(() => {
-        telemetryStatusCache = { message: '', tone: 'info', expiresAt: 0 };
-        setTelemetryActionStatus({ message: '', tone: 'info' });
-        telemetryStatusTimeoutRef.current = null;
-      }, remainingMs);
-    }
-  }, [telemetryActionStatus.message]);
 
   const toggleDeletedListingSelection = (horseId) => {
     const newSelection = new Set(selectedDeletedListings);
@@ -207,19 +129,6 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
 
     setRestoreWindowDays(fallbackRestoreWindowDays);
 
-    setSecurityStatus((prev) => ({
-      ...prev,
-      purge_confirm_token_strong: Boolean(payload.security?.purge_confirm_token_strong),
-      expiry_purge_enabled:
-        typeof payload.security?.expiry_purge_enabled === 'boolean'
-          ? payload.security.expiry_purge_enabled
-          : fallbackRestoreWindowDays > 0,
-      restore_window_days:
-        typeof payload.security?.restore_window_days === 'number'
-          ? payload.security.restore_window_days
-          : fallbackRestoreWindowDays,
-    }));
-
     const nextLatest = {};
     for (const review of reviewsData) {
       if (!review?.horse_id) continue;
@@ -264,316 +173,6 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
       }
     }
   }, [applyDashboardPayload, t]);
-
-  const refreshTelemetrySummary = useCallback(() => {
-    if (typeof apiService.getAdminRequestTelemetry !== 'function') {
-      return;
-    }
-
-    const entries = apiService.getAdminRequestTelemetry({ limit: 60 }) || [];
-    if (entries.length === 0) {
-      setTelemetrySummary({
-        total: 0,
-        avgMs: 0,
-        p95Ms: 0,
-        errorCount: 0,
-        canceledCount: 0,
-        lastStatus: '-',
-        trend: 'insufficient',
-        trendDeltaPct: null,
-        slowEndpoints: [],
-      });
-      return;
-    }
-
-    const durations = entries
-      .map((entry) => (typeof entry?.durationMs === 'number' ? entry.durationMs : 0))
-      .sort((a, b) => a - b);
-    const totalDuration = durations.reduce((acc, current) => acc + current, 0);
-    const avgMs = Math.round(totalDuration / durations.length);
-    const p95Index = Math.max(0, Math.ceil(durations.length * 0.95) - 1);
-    const p95Ms = Math.round(durations[p95Index] || 0);
-    const errorCount = entries.filter(
-      (entry) => !entry?.canceled && typeof entry?.statusCode === 'number' && entry.statusCode >= 400
-    ).length;
-    const canceledCount = entries.filter((entry) => Boolean(entry?.canceled)).length;
-    const latestStatus = entries[0]?.statusCode;
-
-    const newestWindow = entries.slice(0, 20);
-    const previousWindow = entries.slice(20, 40);
-    const newestAvg =
-      newestWindow.length > 0
-        ? newestWindow.reduce((acc, entry) => acc + (Number(entry?.durationMs) || 0), 0) / newestWindow.length
-        : 0;
-    const previousAvg =
-      previousWindow.length > 0
-        ? previousWindow.reduce((acc, entry) => acc + (Number(entry?.durationMs) || 0), 0) / previousWindow.length
-        : 0;
-
-    const classifyTrend = (latestAvg, baselineAvg, latestCount, baselineCount) => {
-      if (latestCount < 10 || baselineCount < 10 || baselineAvg <= 0) {
-        return { trend: 'insufficient', trendDeltaPct: null };
-      }
-
-      const deltaPct = Math.round(((latestAvg - baselineAvg) / baselineAvg) * 100);
-      if (deltaPct <= -12) {
-        return { trend: 'improving', trendDeltaPct: deltaPct };
-      }
-      if (deltaPct >= 12) {
-        return { trend: 'degrading', trendDeltaPct: deltaPct };
-      }
-      return { trend: 'stable', trendDeltaPct: deltaPct };
-    };
-
-    const { trend, trendDeltaPct } = classifyTrend(
-      newestAvg,
-      previousAvg,
-      newestWindow.length,
-      previousWindow.length
-    );
-
-    const endpointGroups = new Map();
-
-    entries.forEach((entry) => {
-      const method = String(entry?.method || 'GET').toUpperCase();
-      const rawUrl = String(entry?.url || '');
-      const pathOnly = rawUrl.split('?')[0] || rawUrl;
-      const endpointKey = `${method} ${pathOnly}`;
-      const durationMs = typeof entry?.durationMs === 'number' ? entry.durationMs : 0;
-
-      if (!endpointGroups.has(endpointKey)) {
-        endpointGroups.set(endpointKey, []);
-      }
-      endpointGroups.get(endpointKey).push(durationMs);
-    });
-
-    const slowEndpoints = Array.from(endpointGroups.entries())
-      .map(([endpoint, endpointDurations]) => {
-        const sortedDurations = [...endpointDurations].sort((a, b) => a - b);
-        const total = sortedDurations.reduce((acc, current) => acc + current, 0);
-        const avg = sortedDurations.length > 0 ? Math.round(total / sortedDurations.length) : 0;
-        const p95IndexForEndpoint = Math.max(0, Math.ceil(sortedDurations.length * 0.95) - 1);
-        const p95 = Math.round(sortedDurations[p95IndexForEndpoint] || 0);
-
-        const endpointNewestWindow = endpointDurations.slice(0, 10);
-        const endpointPreviousWindow = endpointDurations.slice(10, 20);
-        const endpointNewestAvg =
-          endpointNewestWindow.length > 0
-            ? endpointNewestWindow.reduce((acc, value) => acc + value, 0) / endpointNewestWindow.length
-            : 0;
-        const endpointPreviousAvg =
-          endpointPreviousWindow.length > 0
-            ? endpointPreviousWindow.reduce((acc, value) => acc + value, 0) / endpointPreviousWindow.length
-            : 0;
-        const endpointTrendData = classifyTrend(
-          endpointNewestAvg,
-          endpointPreviousAvg,
-          endpointNewestWindow.length,
-          endpointPreviousWindow.length
-        );
-
-        return {
-          endpoint,
-          count: sortedDurations.length,
-          avgMs: avg,
-          p95Ms: p95,
-          trend: endpointTrendData.trend,
-          trendDeltaPct: endpointTrendData.trendDeltaPct,
-        };
-      })
-      .sort((a, b) => {
-        if (b.p95Ms !== a.p95Ms) return b.p95Ms - a.p95Ms;
-        if (b.avgMs !== a.avgMs) return b.avgMs - a.avgMs;
-        return b.count - a.count;
-      })
-      .slice(0, 3);
-
-    setTelemetrySummary({
-      total: entries.length,
-      avgMs,
-      p95Ms,
-      errorCount,
-      canceledCount,
-      lastStatus: typeof latestStatus === 'number' ? String(latestStatus) : '-',
-      trend,
-      trendDeltaPct,
-      slowEndpoints,
-    });
-  }, []);
-
-  const telemetryTrendLabel =
-    telemetrySummary.trend === 'improving'
-      ? t('adminPerfTrendImproving')
-      : telemetrySummary.trend === 'degrading'
-      ? t('adminPerfTrendDegrading')
-      : telemetrySummary.trend === 'stable'
-      ? t('adminPerfTrendStable')
-      : t('adminPerfTrendInsufficientData');
-
-  const getTrendLabel = (trend) =>
-    trend === 'improving'
-      ? t('adminPerfTrendImproving')
-      : trend === 'degrading'
-      ? t('adminPerfTrendDegrading')
-      : trend === 'stable'
-      ? t('adminPerfTrendStable')
-      : t('adminPerfTrendInsufficientData');
-
-  const getTrendArrow = (trend) => {
-    if (trend === 'improving') return '↘';
-    if (trend === 'degrading') return '↗';
-    if (trend === 'stable') return '→';
-    return '•';
-  };
-
-  const clearTelemetrySummary = () => {
-    if (typeof apiService.clearAdminRequestTelemetry === 'function') {
-      apiService.clearAdminRequestTelemetry();
-    }
-    refreshTelemetrySummary();
-    showTelemetryActionStatus(t('adminPerfStatusCleared'), 'info');
-  };
-
-  const showTelemetryActionStatus = (message, tone = 'info') => {
-    telemetryStatusCache = {
-      message,
-      tone,
-      expiresAt: Date.now() + TELEMETRY_STATUS_TTL_MS,
-    };
-
-    setTelemetryActionStatus({ message, tone });
-
-    if (telemetryStatusTimeoutRef.current) {
-      clearTimeout(telemetryStatusTimeoutRef.current);
-    }
-
-    telemetryStatusTimeoutRef.current = setTimeout(() => {
-      telemetryStatusCache = { message: '', tone: 'info', expiresAt: 0 };
-      setTelemetryActionStatus({ message: '', tone: 'info' });
-      telemetryStatusTimeoutRef.current = null;
-    }, TELEMETRY_STATUS_TTL_MS);
-  };
-
-  const runTelemetryAction = async (action) => {
-    const now = Date.now();
-    const cooldownMs = 900;
-    if (telemetryActionBusy || now - telemetryActionCooldownRef.current < cooldownMs) {
-      return;
-    }
-
-    setTelemetryActionBusy(true);
-    try {
-      await action();
-    } finally {
-      telemetryActionCooldownRef.current = Date.now();
-      setTelemetryActionBusy(false);
-    }
-  };
-
-  const exportTelemetrySnapshot = async () => {
-    if (typeof apiService.getAdminRequestTelemetry !== 'function') {
-      Alert.alert(t('error'), t('adminPerfExportUnavailable'));
-      showTelemetryActionStatus(t('adminPerfExportUnavailable'), 'warning');
-      return;
-    }
-
-    const rawEntries = apiService.getAdminRequestTelemetry({ limit: 60 }) || [];
-    let exportTruncated = false;
-    const entries = rawEntries.map((entry) => {
-      if (entry?.errorMessage && entry.errorMessage.length > MAX_EXPORT_ENTRY_ERROR_LEN) {
-        exportTruncated = true;
-        return { ...entry, errorMessage: entry.errorMessage.slice(0, MAX_EXPORT_ENTRY_ERROR_LEN) + '…' };
-      }
-      return entry;
-    });
-    const payload = {
-      exported_at: new Date().toISOString(),
-      ...(exportTruncated && { truncated: true }),
-      summary: telemetrySummary,
-      entries,
-    };
-
-    try {
-      await Share.share({
-        title: t('adminPerfExportTitle'),
-        message: JSON.stringify(payload, null, 2),
-      });
-      showTelemetryActionStatus(t('adminPerfStatusExportOpened'), 'success');
-    } catch (_err) {
-      const fallbackLine = `${t('adminPerfShareFallback')}: Avg ${telemetrySummary.avgMs ?? '-'}ms | P95 ${telemetrySummary.p95Ms ?? '-'}ms | ×${telemetrySummary.errorCount ?? 0} err`;
-      showTelemetryActionStatus(fallbackLine, 'info');
-    }
-  };
-
-  const exportFailingTelemetrySnapshot = async () => {
-    if (typeof apiService.getAdminRequestTelemetry !== 'function') {
-      Alert.alert(t('error'), t('adminPerfExportUnavailable'));
-      showTelemetryActionStatus(t('adminPerfExportUnavailable'), 'warning');
-      return;
-    }
-
-    const entries = apiService.getAdminRequestTelemetry({ limit: 120 }) || [];
-    const failingEntries = entries.filter(
-      (entry) => !entry?.canceled && typeof entry?.statusCode === 'number' && entry.statusCode >= 400
-    );
-
-    if (failingEntries.length === 0) {
-      showTelemetryActionStatus(t('adminPerfNoFailingRequests'), 'info');
-      return;
-    }
-
-    let exportTruncated = false;
-    const sanitizedEntries = failingEntries.map((entry) => {
-      if (entry?.errorMessage && entry.errorMessage.length > MAX_EXPORT_ENTRY_ERROR_LEN) {
-        exportTruncated = true;
-        return { ...entry, errorMessage: entry.errorMessage.slice(0, MAX_EXPORT_ENTRY_ERROR_LEN) + '…' };
-      }
-      return entry;
-    });
-    const payload = {
-      exported_at: new Date().toISOString(),
-      ...(exportTruncated && { truncated: true }),
-      failing_request_count: sanitizedEntries.length,
-      entries: sanitizedEntries,
-    };
-
-    try {
-      await Share.share({
-        title: t('adminPerfExportErrorsTitle'),
-        message: JSON.stringify(payload, null, 2),
-      });
-      showTelemetryActionStatus(t('adminPerfStatusErrorsExportOpened'), 'success');
-    } catch (_err) {
-      const fallbackLine = `${t('adminPerfShareFallback')}: ${sanitizedEntries.length} ×HTTP≥400`;
-      showTelemetryActionStatus(fallbackLine, 'info');
-    }
-  };
-
-  const shareTopSlowEndpointLine = async () => {
-    const topSlow = telemetrySummary.slowEndpoints?.[0];
-    if (!topSlow) {
-      showTelemetryActionStatus(t('adminPerfNoData'), 'info');
-      return;
-    }
-
-    const trendLabel = getTrendLabel(topSlow.trend);
-    const trendArrow = getTrendArrow(topSlow.trend);
-    const trendDelta =
-      topSlow.trendDeltaPct === null
-        ? ''
-        : ` (${topSlow.trendDeltaPct > 0 ? '+' : ''}${topSlow.trendDeltaPct}%)`;
-    const summaryLine = `${topSlow.endpoint} | p95 ${topSlow.p95Ms}ms | avg ${topSlow.avgMs}ms | n=${topSlow.count} | ${t('adminPerfTrend')} ${trendArrow} ${trendLabel}${trendDelta}`;
-
-    try {
-      await Share.share({
-        title: t('adminPerfTopLineTitle'),
-        message: summaryLine,
-      });
-      showTelemetryActionStatus(t('adminPerfStatusTopLineShared'), 'success');
-    } catch (_err) {
-      showTelemetryActionStatus(`${t('adminPerfShareFallback')}: ${summaryLine}`, 'info');
-    }
-  };
 
   const renderReviewMeta = (horseId) => {
     const review = latestReviewByHorse[horseId];
@@ -747,7 +346,6 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
         if (isMounted) {
           setLoading(false);
         }
-        refreshTelemetrySummary();
       });
 
       return () => {
@@ -760,12 +358,8 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
         }
         isMounted = false;
       };
-    }, [applyDashboardPayload, refreshAdminData, refreshTelemetrySummary])
+    }, [applyDashboardPayload, refreshAdminData])
   );
-
-  useEffect(() => {
-    refreshTelemetrySummary();
-  }, [refreshTelemetrySummary]);
 
   const stats = useMemo(() => {
     const admins = users.filter((u) => u.role === 'admin').length;
@@ -1011,7 +605,6 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
       Alert.alert(t('error'), extractApiErrorMessage(err, t('adminLoadFailed')));
     } finally {
       setLoadingMoreTab(null);
-      refreshTelemetrySummary();
     }
   };
 
@@ -1088,168 +681,10 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
         <Text style={[styles.headerSubtitle, isRTL && styles.textRTL]}>{t('adminPanelSubtitle')}</Text>
       </View>
 
-      <View style={[styles.toolsRow, isRTL && styles.rowRTL]}>
-        <TouchableOpacity
-          style={styles.toolCard}
-          onPress={() => navigation.navigate('AdminPushLogs')}
-        >
-          <Ionicons name="notifications-outline" size={18} color={COLORS.primary} />
-          <Text style={[styles.toolTitle, isRTL && styles.textRTL]}>{t('adminPushLogs')}</Text>
-          <Text style={[styles.toolSubtitle, isRTL && styles.textRTL]}>{t('adminPushLogsSubtitle')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.toolCard}
-          onPress={() => navigation.navigate('AdminOfferAudit')}
-        >
-          <Ionicons name="swap-horizontal-outline" size={18} color={COLORS.primary} />
-          <Text style={[styles.toolTitle, isRTL && styles.textRTL]}>{t('adminOfferAudit')}</Text>
-          <Text style={[styles.toolSubtitle, isRTL && styles.textRTL]}>{t('adminOfferAuditSubtitle')}</Text>
-        </TouchableOpacity>
-        <View style={styles.toolCard} testID="admin-security-status-card">
-          <Ionicons
-            name={securityStatus.purge_confirm_token_strong ? 'shield-checkmark-outline' : 'warning-outline'}
-            size={18}
-            color={securityStatus.purge_confirm_token_strong ? COLORS.success : COLORS.warning}
-          />
-          <Text style={[styles.toolTitle, isRTL && styles.textRTL]}>{t('adminSecurityStatus')}</Text>
-          <Text style={[styles.toolSubtitle, isRTL && styles.textRTL]}>
-            {securityStatus.purge_confirm_token_strong
-              ? t('adminPurgeTokenStrong')
-              : t('adminPurgeTokenWeak')}
-          </Text>
-          <Text style={[styles.toolSubtitle, isRTL && styles.textRTL]}>
-            {securityStatus.expiry_purge_enabled
-              ? `${t('adminExpiryPurgeEnabled')}: ${securityStatus.restore_window_days}`
-              : t('adminExpiryPurgeDisabled')}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.telemetryRow}>
-        <View style={styles.telemetryCard} testID="admin-performance-card">
-          <View style={[styles.telemetryHeader, isRTL && styles.rowRTL]}>
-            <Ionicons name="speedometer-outline" size={18} color={COLORS.primary} />
-            <Text style={[styles.toolTitle, isRTL && styles.textRTL]}>{t('adminPerformanceSnapshot')}</Text>
-            <TouchableOpacity
-              style={[styles.telemetryActionBtn, telemetryActionBusy && styles.telemetryActionBtnDisabled]}
-              onPress={() => runTelemetryAction(shareTopSlowEndpointLine)}
-              disabled={telemetryActionBusy}
-            >
-              <Text style={styles.telemetryActionBtnText}>{t('adminPerfShareTopLine')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.telemetryActionBtn, telemetryActionBusy && styles.telemetryActionBtnDisabled]}
-              onPress={() => runTelemetryAction(exportFailingTelemetrySnapshot)}
-              disabled={telemetryActionBusy}
-            >
-              <Text style={styles.telemetryActionBtnText}>{t('adminPerfExportErrors')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.telemetryActionBtn, telemetryActionBusy && styles.telemetryActionBtnDisabled]}
-              onPress={() => runTelemetryAction(exportTelemetrySnapshot)}
-              disabled={telemetryActionBusy}
-            >
-              <Text style={styles.telemetryActionBtnText}>{t('adminPerfExport')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.telemetryActionBtn,
-                styles.telemetryClearBtn,
-                telemetryActionBusy && styles.telemetryActionBtnDisabled,
-              ]}
-              onPress={() => runTelemetryAction(async () => clearTelemetrySummary())}
-              disabled={telemetryActionBusy}
-            >
-              <Text style={styles.telemetryClearBtnText}>{t('adminPerfClear')}</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={[styles.telemetryGrid, isRTL && styles.rowRTL]}>
-            <Text style={[styles.telemetryMetric, isRTL && styles.textRTL]}>{t('adminPerfRecentRequests')}: {telemetrySummary.total}</Text>
-            <Text
-              style={[
-                styles.telemetryMetric,
-                getLatencyTone(telemetrySummary.avgMs) === 'warning' && styles.telemetryMetricWarning,
-                getLatencyTone(telemetrySummary.avgMs) === 'critical' && styles.telemetryMetricCritical,
-                isRTL && styles.textRTL,
-              ]}
-            >
-              {t('adminPerfAvgMs')}: {telemetrySummary.avgMs}
-            </Text>
-            <Text
-              style={[
-                styles.telemetryMetric,
-                getLatencyTone(telemetrySummary.p95Ms) === 'warning' && styles.telemetryMetricWarning,
-                getLatencyTone(telemetrySummary.p95Ms) === 'critical' && styles.telemetryMetricCritical,
-                isRTL && styles.textRTL,
-              ]}
-            >
-              {t('adminPerfP95Ms')}: {telemetrySummary.p95Ms}
-            </Text>
-            <Text style={[styles.telemetryMetric, isRTL && styles.textRTL]}>{t('adminPerfErrors')}: {telemetrySummary.errorCount}</Text>
-            <Text style={[styles.telemetryMetric, isRTL && styles.textRTL]}>{t('adminPerfCanceled')}: {telemetrySummary.canceledCount}</Text>
-            <Text style={[styles.telemetryMetric, isRTL && styles.textRTL]}>{t('adminPerfLastStatus')}: {telemetrySummary.lastStatus}</Text>
-            <Text
-              style={[
-                styles.telemetryMetric,
-                telemetrySummary.trend === 'improving' && styles.telemetryTrendImproving,
-                telemetrySummary.trend === 'degrading' && styles.telemetryTrendDegrading,
-                telemetrySummary.trend === 'stable' && styles.telemetryTrendStable,
-                isRTL && styles.textRTL,
-              ]}
-            >
-              {t('adminPerfTrend')}:{' '}
-              {telemetrySummary.trendDeltaPct === null
-                ? telemetryTrendLabel
-                : `${telemetryTrendLabel} (${telemetrySummary.trendDeltaPct > 0 ? '+' : ''}${telemetrySummary.trendDeltaPct}%)`}
-            </Text>
-          </View>
-          {telemetryActionStatus.message ? (
-            <Text
-              style={[
-                styles.telemetryActionStatus,
-                telemetryActionStatus.tone === 'success' && styles.telemetryActionStatusSuccess,
-                telemetryActionStatus.tone === 'warning' && styles.telemetryActionStatusWarning,
-                isRTL && styles.textRTL,
-              ]}
-            >
-              {telemetryActionStatus.message}
-            </Text>
-          ) : null}
-          <Text style={[styles.telemetryThresholdHint, isRTL && styles.textRTL]}>
-            {`${t('adminPerfThresholdHint')}: ${TELEMETRY_WARN_MS}ms / ${TELEMETRY_CRITICAL_MS}ms`}
-          </Text>
-          <View style={styles.telemetrySlowList}>
-            <Text style={[styles.telemetrySlowTitle, isRTL && styles.textRTL]}>{t('adminPerfSlowEndpoints')}</Text>
-            {telemetrySummary.slowEndpoints.length === 0 ? (
-              <Text style={[styles.telemetrySlowItem, isRTL && styles.textRTL]}>{t('adminPerfNoData')}</Text>
-            ) : (
-              telemetrySummary.slowEndpoints.map((item, index) => (
-                <Text
-                  key={item.endpoint}
-                  style={[
-                    styles.telemetrySlowItem,
-                    getLatencyTone(item.p95Ms) === 'warning' && styles.telemetryMetricWarning,
-                    getLatencyTone(item.p95Ms) === 'critical' && styles.telemetryMetricCritical,
-                    item.trend === 'improving' && styles.telemetryTrendImproving,
-                    item.trend === 'degrading' && styles.telemetryTrendDegrading,
-                    item.trend === 'stable' && styles.telemetryTrendStable,
-                    isRTL && styles.textRTL,
-                  ]}
-                >
-                  {index + 1}. {item.endpoint} - p95 {item.p95Ms}ms | avg {item.avgMs}ms | n={item.count} | {t('adminPerfTrend')} {getTrendArrow(item.trend)} {getTrendLabel(item.trend)}
-                  {item.trendDeltaPct === null ? '' : ` (${item.trendDeltaPct > 0 ? '+' : ''}${item.trendDeltaPct}%)`}
-                </Text>
-              ))
-            )}
-          </View>
-        </View>
-      </View>
-
       <View style={styles.statsRow}>
         {[
           { key: 'users', label: t('adminUsers'), value: stats.users, icon: 'people-outline', colors: ['#0891B2', '#22D3EE'] },
-          { key: 'admins', label: t('adminAdmins'), value: stats.admins, icon: 'shield-outline', colors: ['#0F766E', '#34D399'] },
-          { key: 'pending', label: t('adminPending'), value: stats.pending, icon: 'time-outline', colors: ['#B45309', '#F59E0B'] },
+          { key: 'listings', label: t('adminAllListings'), value: stats.listings, icon: 'list-outline', colors: ['#0F766E', '#34D399'] },
         ].map((card) => (
           <LinearGradient key={card.key} colors={card.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statCard}>
             <View style={styles.statIconWrap}>
@@ -1273,7 +708,9 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
             style={[styles.tabBtn, activeTab === tab.key && styles.tabBtnActive]}
             onPress={() => setActiveTab(tab.key)}
           >
-            <Text style={[styles.tabBtnText, activeTab === tab.key && styles.tabBtnTextActive]}>{tab.label}</Text>
+            <View style={styles.tabBtnLabelWrap}>
+              <Text style={[styles.tabBtnText, activeTab === tab.key && styles.tabBtnTextActive]}>{tab.label}</Text>
+            </View>
           </TouchableOpacity>
         ))}
       </View>
@@ -1713,144 +1150,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SPACING.sm,
     paddingHorizontal: SPACING.md,
-  },
-  toolsRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    paddingHorizontal: SPACING.md,
     marginBottom: SPACING.sm,
-  },
-  telemetryRow: {
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  toolCard: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...SHADOWS.soft,
-  },
-  telemetryCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...SHADOWS.soft,
-  },
-  telemetryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    marginBottom: SPACING.xs,
-  },
-  telemetryActionBtn: {
-    marginLeft: 'auto',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    backgroundColor: COLORS.inputBg,
-  },
-  telemetryActionBtnText: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    fontWeight: '700',
-  },
-  telemetryActionBtnDisabled: {
-    opacity: 0.6,
-  },
-  telemetryClearBtn: {
-    marginLeft: SPACING.xs,
-  },
-  telemetryClearBtnText: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    fontWeight: '700',
-  },
-  telemetryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.xs,
-  },
-  telemetryMetric: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    minWidth: '48%',
-  },
-  telemetryMetricWarning: {
-    color: COLORS.warning,
-    fontWeight: '700',
-  },
-  telemetryMetricCritical: {
-    color: COLORS.error,
-    fontWeight: '700',
-  },
-  telemetryTrendImproving: {
-    color: COLORS.success,
-    fontWeight: '700',
-  },
-  telemetryTrendDegrading: {
-    color: COLORS.error,
-    fontWeight: '700',
-  },
-  telemetryTrendStable: {
-    color: COLORS.primary,
-    fontWeight: '700',
-  },
-  telemetryThresholdHint: {
-    ...FONTS.caption,
-    color: COLORS.textLight,
-    marginTop: 4,
-  },
-  telemetryActionStatus: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    marginTop: 6,
-    fontWeight: '600',
-  },
-  telemetryActionStatusSuccess: {
-    color: COLORS.success,
-  },
-  telemetryActionStatusWarning: {
-    color: COLORS.warning,
-  },
-  telemetrySlowList: {
-    marginTop: SPACING.xs,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: SPACING.xs,
-  },
-  telemetrySlowTitle: {
-    ...FONTS.caption,
-    color: COLORS.text,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  telemetrySlowItem: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
-  toolTitle: {
-    ...FONTS.bodySmall,
-    color: COLORS.text,
-    fontWeight: '700',
-    marginTop: SPACING.sm,
-  },
-  toolSubtitle: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    marginTop: 4,
   },
   statCard: {
     flex: 1,
     borderRadius: RADIUS.md,
-    padding: SPACING.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
     alignItems: 'center',
     ...SHADOWS.soft,
   },
@@ -1864,14 +1170,17 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statNumber: {
-    ...FONTS.h2,
+    ...FONTS.h3,
     color: COLORS.white,
+    fontSize: 20,
+    lineHeight: 24,
   },
   statLabel: {
     ...FONTS.caption,
     color: COLORS.white,
     opacity: 0.95,
-    marginTop: 2,
+    marginTop: 1,
+    fontSize: 11,
   },
   tabRow: {
     flexDirection: 'row',
@@ -1882,11 +1191,16 @@ const styles = StyleSheet.create({
   tabBtn: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: RADIUS.md,
     paddingVertical: SPACING.sm,
     backgroundColor: COLORS.inputBg,
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  tabBtnLabelWrap: {
+    minHeight: 30,
+    justifyContent: 'center',
   },
   tabBtnActive: {
     backgroundColor: COLORS.primaryLight + '20',
@@ -1895,6 +1209,8 @@ const styles = StyleSheet.create({
   tabBtnText: {
     ...FONTS.caption,
     color: COLORS.textSecondary,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   tabBtnTextActive: {
     color: COLORS.primary,

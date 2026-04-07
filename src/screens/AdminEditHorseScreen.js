@@ -11,6 +11,7 @@ import {
   StatusBar,
   Modal,
   FlatList,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +30,13 @@ export default function AdminEditHorseScreen({ route, navigation }) {
   const [errors, setErrors] = useState({});
   const [breedModalVisible, setBreedModalVisible] = useState(false);
   const [breedSearchQuery, setBreedSearchQuery] = useState('');
+  const [images, setImages] = useState(
+    horse?.images?.length
+      ? horse.images.map((img) => img.image_url).filter(Boolean)
+      : horse?.image_url
+      ? [horse.image_url]
+      : []
+  );
   const [form, setForm] = useState({
     title: horse?.title || '',
     price: horse?.price != null ? String(horse.price) : '',
@@ -79,6 +87,10 @@ export default function AdminEditHorseScreen({ route, navigation }) {
 
   const save = async () => {
     if (!validate()) return;
+    if (images.length === 0) {
+      Alert.alert(t('error'), t('imagesRequired'));
+      return;
+    }
 
     setSaving(true);
     try {
@@ -90,6 +102,7 @@ export default function AdminEditHorseScreen({ route, navigation }) {
         discipline: form.discipline.trim() || null,
         height: form.height.trim() ? Number(form.height) : null,
         description: form.description.trim() || null,
+        image_urls: images,
       });
       Alert.alert(t('success'), t('adminHorseUpdated'), [
         { text: t('ok'), onPress: () => navigation.goBack() },
@@ -123,6 +136,24 @@ export default function AdminEditHorseScreen({ route, navigation }) {
     </View>
   );
 
+  const removeImageAtIndex = (indexToRemove) => {
+    if (images.length <= 1) {
+      Alert.alert(t('error'), t('imagesRequired'));
+      return;
+    }
+
+    Alert.alert(t('deleteListing'), t('confirm'), [
+      { text: t('cancel'), style: 'cancel' },
+      {
+        text: t('deleteListing'),
+        style: 'destructive',
+        onPress: () => {
+          setImages((prev) => prev.filter((_, index) => index !== indexToRemove));
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
@@ -135,6 +166,31 @@ export default function AdminEditHorseScreen({ route, navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.field}>
+          <View style={[styles.photosHeaderRow, isRTL && styles.rowRTL]}>
+            <Text style={[styles.label, isRTL && styles.textRTL]}>{t('photos')}</Text>
+            <Text style={[styles.photoCount, isRTL && styles.textRTL]}>{images.length}</Text>
+          </View>
+          {images.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photosRow}>
+              {images.map((imageUrl, index) => (
+                <View key={`${imageUrl}-${index}`} style={styles.photoThumbWrap}>
+                  <Image source={{ uri: imageUrl }} style={styles.photoThumb} />
+                  <TouchableOpacity
+                    style={styles.photoDeleteBtn}
+                    onPress={() => removeImageAtIndex(index)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close" size={14} color={COLORS.white} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <Text style={[styles.errorText, isRTL && styles.textRTL]}>{t('imagesRequired')}</Text>
+          )}
+        </View>
+
         {renderInput('title', t('title'))}
         {renderInput('price', t('priceLabel'), { keyboardType: 'numeric' })}
         <View style={styles.field}>
@@ -241,6 +297,42 @@ const styles = StyleSheet.create({
   headerTitle: { ...FONTS.h2, color: COLORS.primary },
   content: { padding: SPACING.md, paddingBottom: SPACING.xxl },
   field: { marginBottom: SPACING.md },
+  photosHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  photoCount: {
+    ...FONTS.caption,
+    color: COLORS.textSecondary,
+    fontWeight: '700',
+  },
+  photosRow: {
+    gap: SPACING.sm,
+  },
+  photoThumbWrap: {
+    width: 96,
+    height: 96,
+    borderRadius: RADIUS.md,
+    overflow: 'hidden',
+    backgroundColor: COLORS.borderLight,
+  },
+  photoThumb: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  photoDeleteBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   label: { ...FONTS.caption, color: COLORS.textSecondary, marginBottom: SPACING.xs },
   input: {
     backgroundColor: COLORS.surface,

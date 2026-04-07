@@ -220,38 +220,7 @@ describe('AdminPanelScreen purge confirmation', () => {
     });
   });
 
-  it('renders security status card for strong token and enabled expiry purge', async () => {
-    const screen = render(<AdminPanelScreen navigation={navigation} initialTab="deleted" />);
-
-    await waitFor(() => {
-      expect(apiService.adminFetchDashboard).toHaveBeenCalled();
-      expect(screen.getByTestId('admin-security-status-card')).toBeTruthy();
-      expect(screen.getByText('adminSecurityStatus')).toBeTruthy();
-      expect(screen.getByText('adminPurgeTokenStrong')).toBeTruthy();
-      expect(screen.getByText('adminExpiryPurgeEnabled: 30')).toBeTruthy();
-      expect(screen.getByText('shield-checkmark-outline')).toBeTruthy();
-    });
-  });
-
-  it('renders security status card for weak token and disabled expiry purge', async () => {
-    seedAdminPanelData({
-      purge_confirm_token_strong: false,
-      expiry_purge_enabled: false,
-      restore_window_days: 0,
-    });
-
-    const screen = render(<AdminPanelScreen navigation={navigation} initialTab="deleted" />);
-
-    await waitFor(() => {
-      expect(apiService.adminFetchDashboard).toHaveBeenCalled();
-      expect(screen.getByTestId('admin-security-status-card')).toBeTruthy();
-      expect(screen.getByText('adminPurgeTokenWeak')).toBeTruthy();
-      expect(screen.getByText('adminExpiryPurgeDisabled')).toBeTruthy();
-      expect(screen.getByText('warning-outline')).toBeTruthy();
-    });
-  });
-
-  it('keeps admin panel usable when security status endpoint fails', async () => {
+  it('keeps admin panel usable when security status payload is missing', async () => {
     seedAdminPanelData(null);
 
     const screen = render(<AdminPanelScreen navigation={navigation} initialTab="deleted" />);
@@ -259,7 +228,6 @@ describe('AdminPanelScreen purge confirmation', () => {
     await waitFor(() => {
       expect(apiService.adminFetchDashboard).toHaveBeenCalled();
       expect(screen.getByText('adminPurgeExpired')).toBeTruthy();
-      expect(screen.getByTestId('admin-security-status-card')).toBeTruthy();
     });
 
     expect(Alert.alert).not.toHaveBeenCalledWith('error', 'adminLoadFailed');

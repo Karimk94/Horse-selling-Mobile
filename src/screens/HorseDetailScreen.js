@@ -32,7 +32,15 @@ export default function HorseDetailScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const { isAuthenticated, user } = useAuth();
   const { t, isRTL } = useLanguage();
-  const [horse, setHorse] = useState(route.params.horse);
+  const initialHorse = route?.params?.horse || null;
+  const fallbackHorseId =
+    initialHorse?.id ||
+    route?.params?.horse_id ||
+    route?.params?.horseId ||
+    route?.params?.id ||
+    route?.params?.listing_id ||
+    null;
+  const [horse, setHorse] = useState(initialHorse);
   const [isFav, setIsFav] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showOffersSheet, setShowOffersSheet] = useState(false);
@@ -42,31 +50,45 @@ export default function HorseDetailScreen({ route, navigation }) {
   const heartScale = useRef(new Animated.Value(1)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const images = horse.images?.length
+  const images = horse?.images?.length
     ? horse.images.map((img) => img.image_url)
-    : horse.image_url
+    : horse?.image_url
     ? [horse.image_url]
     : [];
 
   // Re-fetch fresh data whenever this screen is focused
   useFocusEffect(
     useCallback(() => {
+      const targetHorseId = horse?.id || fallbackHorseId;
+      if (!targetHorseId) {
+        return () => {};
+      }
+
       apiService
-        .getHorse(horse.id)
+        .getHorse(targetHorseId)
         .then((res) => setHorse(res.data))
         .catch(() => {});
-    }, [horse.id])
+    }, [horse?.id, fallbackHorseId])
   );
 
   // Check favorite status on mount
   React.useEffect(() => {
-    if (isAuthenticated) {
+    const targetHorseId = horse?.id || fallbackHorseId;
+    if (isAuthenticated && targetHorseId) {
       apiService
-        .isFavorite(horse.id)
+        .isFavorite(targetHorseId)
         .then((res) => setIsFav(res.data?.is_favorite ?? false))
         .catch(() => {});
     }
-  }, [horse.id, isAuthenticated]);
+  }, [horse?.id, fallbackHorseId, isAuthenticated]);
+
+  if (!horse) {
+    return (
+      <View style={styles.loadingWrap}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
   const toggleFavorite = async () => {
     if (!isAuthenticated) {
@@ -593,6 +615,12 @@ export default function HorseDetailScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.background,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

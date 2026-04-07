@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
@@ -21,7 +22,25 @@ export default function HorseCard({ horse, onPress, onFavorite, isFavorited }) {
   const { t } = useLanguage();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const heartScale = useRef(new Animated.Value(1)).current;
+  const imageListRef = useRef(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const trust = useMemo(() => calculateHorseTrustScore(horse), [horse]);
+  const images = useMemo(() => {
+    if (Array.isArray(horse?.images) && horse.images.length > 0) {
+      return horse.images.map((img) => img?.image_url).filter(Boolean);
+    }
+    if (horse?.image_url) {
+      return [horse.image_url];
+    }
+    return [];
+  }, [horse]);
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+    if (imageListRef.current) {
+      imageListRef.current.scrollToOffset({ offset: 0, animated: false });
+    }
+  }, [horse?.id]);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -59,7 +78,6 @@ export default function HorseCard({ horse, onPress, onFavorite, isFavorited }) {
     onFavorite?.(horse);
   };
 
-  const imageUrl = horse.images?.[0]?.image_url || horse.image_url;
   const displayPrice =
     horse.discount_price != null ? horse.discount_price : horse.price;
   const hasDiscount = horse.discount_price != null && horse.discount_price < horse.price;
@@ -74,16 +92,38 @@ export default function HorseCard({ horse, onPress, onFavorite, isFavorited }) {
 
   return (
     <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
-      <TouchableOpacity
-        activeOpacity={0.95}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        onPress={() => onPress?.(horse)}
-        style={styles.touchable}
-      >
+      <View style={styles.touchable}>
         <View style={styles.imageContainer}>
-          {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.image} />
+          {images.length > 0 ? (
+            <>
+              <FlatList
+                ref={imageListRef}
+                data={images}
+                horizontal
+                pagingEnabled
+                bounces={false}
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(_, index) => `${horse?.id || 'horse'}-${index}`}
+                onMomentumScrollEnd={(e) => {
+                  const index = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH);
+                  setActiveImageIndex(index);
+                }}
+                renderItem={({ item }) => <Image source={{ uri: item }} style={styles.image} />}
+              />
+              {images.length > 1 && (
+                <View style={styles.pagination}>
+                  {images.map((_, index) => (
+                    <View
+                      key={`${horse?.id || 'horse'}-dot-${index}`}
+                      style={[
+                        styles.paginationDot,
+                        index === activeImageIndex && styles.paginationDotActive,
+                      ]}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
           ) : (
             <View style={styles.placeholderImage}>
               <Ionicons name="image-outline" size={48} color={COLORS.textLight} />
@@ -133,7 +173,13 @@ export default function HorseCard({ horse, onPress, onFavorite, isFavorited }) {
           )}
         </View>
 
-        <View style={styles.details}>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          onPress={() => onPress?.(horse)}
+        >
+          <View style={styles.details}>
           <View style={styles.trustRow}>
             <Text style={styles.trustLabel}>{t('trustScore')}</Text>
             <View style={[styles.trustBadge, { borderColor: trust.color }]}> 
@@ -194,8 +240,9 @@ export default function HorseCard({ horse, onPress, onFavorite, isFavorited }) {
               </View>
             )}
           </View>
-        </View>
-      </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </View>
     </Animated.View>
   );
 }
@@ -219,9 +266,26 @@ const styles = StyleSheet.create({
     height: IMAGE_HEIGHT,
   },
   image: {
-    width: '100%',
+    width: CARD_WIDTH,
     height: '100%',
     resizeMode: 'cover',
+  },
+  pagination: {
+    position: 'absolute',
+    bottom: SPACING.sm,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  paginationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  paginationDotActive: {
+    width: 14,
+    backgroundColor: COLORS.white,
   },
   placeholderImage: {
     width: '100%',
