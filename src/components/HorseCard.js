@@ -415,15 +415,18 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   tag: {
-    backgroundColor: COLORS.borderLight,
+    backgroundColor: COLORS.primaryLight + '10',
     paddingHorizontal: SPACING.sm + 2,
     paddingVertical: SPACING.xs,
     borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.primaryLight + '20',
   },
   tagText: {
     ...FONTS.caption,
-    color: COLORS.textSecondary,
+    color: COLORS.primary,
     fontSize: 11,
     textTransform: 'capitalize',
+    fontWeight: '600',
   },
 });

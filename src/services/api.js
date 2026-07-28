@@ -12,8 +12,6 @@ let unauthorizedHandler = null;
 let unauthorizedHandlerPromise = null;
 const recentIdempotencyKeys = new Map();
 const IDEMPOTENCY_WINDOW_MS = 30000;
-// Must match backend `PURGE_CONFIRM_TOKEN` (default: PURGE).
-const ADMIN_PURGE_CONFIRM_TOKEN = 'PURGE';
 const ADMIN_DASHBOARD_CACHE_MAX_AGE_MS = 45000;
 let adminDashboardCache = null;
 let adminDashboardInFlight = null;
@@ -448,18 +446,18 @@ export const adminFetchDashboard = async ({ skip = 0, limit = 20, force = false,
   }
 };
 
-export const adminPurgeExpiredDeletedListings = () =>
+export const adminPurgeExpiredDeletedListings = (confirmToken) =>
   api.delete('/api/v1/admin/listings/deleted/expired', {
-    params: { confirm_token: ADMIN_PURGE_CONFIRM_TOKEN },
+    params: { confirm_token: confirmToken },
   });
 
 export const adminBulkRestoreListings = (horseIds) =>
   api.post('/api/v1/admin/listings/bulk/restore', { horse_ids: horseIds });
 
-export const adminBulkPurgeDeletedListings = (horseIds) =>
+export const adminBulkPurgeDeletedListings = (horseIds, confirmToken) =>
   api.post('/api/v1/admin/listings/bulk/purge', {
     horse_ids: horseIds,
-    confirm_token: ADMIN_PURGE_CONFIRM_TOKEN,
+    confirm_token: confirmToken,
   });
 
 export const adminListReviews = () => api.get('/api/v1/admin/reviews');
