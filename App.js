@@ -9,7 +9,6 @@ import AppNavigator from './src/navigation/AppNavigator';
 import BrandedSplash from './src/components/BrandedSplash';
 import { navigate } from './src/navigation/navigationService';
 import * as apiService from './src/services/api';
-import { API_BASE_URL } from './src/config/api';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -83,9 +82,6 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <View style={styles.debugBanner} pointerEvents="none">
-        <Text style={styles.debugText}>API: {API_BASE_URL}</Text>
-      </View>
       <LanguageProvider>
         {showSplash ? (
           <BrandedSplash />
@@ -99,20 +95,4 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  debugBanner: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    zIndex: 9999,
-    alignItems: 'center',
-  },
-  debugText: {
-    color: '#fff',
-    fontSize: 12,
-  },
-});
+const styles = StyleSheet.create({});
