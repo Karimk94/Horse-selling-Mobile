@@ -11,11 +11,13 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useToast } from '../../components/ToastProvider';
 
 export default function LoginScreen({ navigation }) {
   const { signIn } = useAuth();
@@ -25,6 +27,7 @@ export default function LoginScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const toast = useToast();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -73,7 +76,7 @@ export default function LoginScreen({ navigation }) {
     } catch (err) {
       const msg =
         err.response?.data?.detail || 'Login failed. Please try again.';
-      Alert.alert('Error', msg);
+      toast.show(msg, { type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -107,7 +110,11 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.logoArea}>
             <View style={[styles.logoRow, isRTL && styles.rowRTL]}>
               <View style={styles.logoCircle}>
-                <MaterialCommunityIcons name="horse-variant" size={40} color={COLORS.primary} />
+                <Image
+                  source={require('../../../assets/icon.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
               </View>
               <Text style={styles.appName}>{t('appName')}</Text>
             </View>
@@ -255,6 +262,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryLight + '15',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  logoImage: {
+    width: 32,
+    height: 32,
   },
   appName: {
     ...FONTS.h1,

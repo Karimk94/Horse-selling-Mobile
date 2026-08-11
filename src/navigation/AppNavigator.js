@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, Image } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -175,7 +175,11 @@ export default function AppNavigator() {
   if (loading) {
     return (
       <View style={styles.loading}>
-        <MaterialCommunityIcons name="horse-variant" size={48} color={COLORS.primary} />
+        <Image
+          source={require('../../assets/icon.png')}
+          style={styles.loadingLogo}
+          resizeMode="contain"
+        />
       </View>
     );
   }

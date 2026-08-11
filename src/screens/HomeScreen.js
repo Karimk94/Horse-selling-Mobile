@@ -371,7 +371,11 @@ export default function HomeScreen({ navigation }) {
       <View style={[styles.header, isRTL && styles.headerRTL]}>
         <View style={[styles.logoRow, isRTL && styles.rowRTL]}>
           <View style={styles.logoCircle}>
-            <MaterialCommunityIcons name="horse-variant" size={28} color={COLORS.primary} />
+            <Image
+              source={require('../../assets/icon.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <View>
             <Text style={styles.headerTitle}>{t('appName')}</Text>
@@ -492,6 +496,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryLight + '15',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  logoImage: {
+    width: 28,
+    height: 28,
   },
   rowRTL: {
     flexDirection: 'row-reverse',

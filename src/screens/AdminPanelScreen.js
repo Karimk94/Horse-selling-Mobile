@@ -20,10 +20,12 @@ import { useLanguage } from '../contexts/LanguageContext';
 import HorseCard from '../components/HorseCard';
 import * as apiService from '../services/api';
 import { extractApiErrorMessage } from '../utils/apiErrors';
+import { useToast } from '../components/ToastProvider';
 
 export default function AdminPanelScreen({ navigation, initialTab = 'pending' }) {
   const insets = useSafeAreaInsets();
   const { t, isRTL } = useLanguage();
+  const toast = useToast();
   const PAGE_LIMIT = 20;
 
   const [loading, setLoading] = useState(true);
@@ -166,7 +168,7 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
         return;
       }
 
-      Alert.alert(t('error'), extractApiErrorMessage(err, t('adminLoadFailed')));
+      toast.show(extractApiErrorMessage(err, t('adminLoadFailed')), { type: 'error' });
     } finally {
       if (refreshAbortControllerRef.current === controller) {
         refreshAbortControllerRef.current = null;
@@ -375,9 +377,9 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
     try {
       await apiService.adminApproveListing(horseId);
       await refreshAdminData();
-      Alert.alert(t('success'), t('adminListingApproved'));
+      toast.show(t('adminListingApproved'), { type: 'success' });
     } catch (err) {
-      Alert.alert(t('error'), extractApiErrorMessage(err, t('adminActionFailed')));
+      toast.show(extractApiErrorMessage(err, t('adminActionFailed')), { type: 'error' });
     }
   };
 
@@ -397,9 +399,9 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
       await apiService.adminRejectListing(horseId, reason);
       await refreshAdminData();
       cancelRejectEditor();
-      Alert.alert(t('success'), t('adminListingRejected'));
+      toast.show(t('adminListingRejected'), { type: 'success' });
     } catch (err) {
-      Alert.alert(t('error'), extractApiErrorMessage(err, t('adminActionFailed')));
+      toast.show(extractApiErrorMessage(err, t('adminActionFailed')), { type: 'error' });
     }
   };
 
@@ -407,15 +409,15 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
     try {
       await apiService.restoreHorseListing(horseId);
       await refreshAdminData();
-      Alert.alert(t('success'), t('listingRestored'));
+      toast.show(t('listingRestored'), { type: 'success' });
     } catch (err) {
-      Alert.alert(t('error'), extractApiErrorMessage(err, t('listingRestoreFailed')));
+      toast.show(extractApiErrorMessage(err, t('listingRestoreFailed')), { type: 'error' });
     }
   };
 
   const handlePurgeExpiredDeleted = () => {
     if (restoreWindowDays <= 0) {
-      Alert.alert(t('error'), t('adminPurgeExpiredDisabled'));
+      toast.show(t('adminPurgeExpiredDisabled'), { type: 'error' });
       return;
     }
 
@@ -425,7 +427,7 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
 
   const handleBulkRestoreSelected = () => {
     if (selectedDeletedListings.size === 0) {
-      Alert.alert(t('error'), t('adminSelectItems'));
+      toast.show(t('adminSelectItems'), { type: 'error' });
       return;
     }
 
@@ -446,9 +448,9 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
               await refreshAdminData();
               const { restored_count = 0, expired_count = 0, already_active_count = 0 } = res.data || {};
               const message = `${t('restored')}: ${restored_count}, ${t('expired')}: ${expired_count}, ${t('active')}: ${already_active_count}`;
-              Alert.alert(t('success'), message);
+              toast.show(message, { type: 'success' });
             } catch (err) {
-              Alert.alert(t('error'), extractApiErrorMessage(err, t('adminActionFailed')));
+              toast.show(extractApiErrorMessage(err, t('adminActionFailed')), { type: 'error' });
             } finally {
               setBulkOperationLoading(false);
             }
@@ -460,12 +462,12 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
 
   const handleBulkPurgeSelected = () => {
     if (selectedDeletedListings.size === 0) {
-      Alert.alert(t('error'), t('adminSelectItems'));
+      toast.show(t('adminSelectItems'), { type: 'error' });
       return;
     }
 
     if (restoreWindowDays <= 0) {
-      Alert.alert(t('error'), t('adminBulkPurgeDisabled'));
+      toast.show(t('adminBulkPurgeDisabled'), { type: 'error' });
       return;
     }
 
@@ -475,7 +477,7 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
 
   const handleConfirmPurgeAction = async () => {
     if (purgeConfirmText.trim().toUpperCase() !== PURGE_KEYWORD) {
-      Alert.alert(t('error'), t('adminPurgeTypeInvalid'));
+      toast.show(t('adminPurgeTypeInvalid'), { type: 'error' });
       return;
     }
 
@@ -485,9 +487,9 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
         const res = await apiService.adminPurgeExpiredDeletedListings();
         await refreshAdminData();
         const purgedCount = typeof res.data?.purged_count === 'number' ? res.data.purged_count : 0;
-        Alert.alert(t('success'), `${t('adminPurgeExpiredSuccess')}: ${purgedCount}`);
+        toast.show(`${t('adminPurgeExpiredSuccess')}: ${purgedCount}`, { type: 'success' });
       } catch (err) {
-        Alert.alert(t('error'), extractApiErrorMessage(err, t('adminActionFailed')));
+        toast.show(extractApiErrorMessage(err, t('adminActionFailed')), { type: 'error' });
       } finally {
         setPurgingExpired(false);
         setPurgeConfirmMode(null);
@@ -505,9 +507,9 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
         await refreshAdminData();
         const { purged_count = 0, not_expired_count = 0 } = res.data || {};
         const message = `${t('deleted')}: ${purged_count}, ${t('notExpired')}: ${not_expired_count}`;
-        Alert.alert(t('success'), message);
+        toast.show(message, { type: 'success' });
       } catch (err) {
-        Alert.alert(t('error'), extractApiErrorMessage(err, t('adminActionFailed')));
+        toast.show(extractApiErrorMessage(err, t('adminActionFailed')), { type: 'error' });
       } finally {
         setBulkOperationLoading(false);
         setPurgeConfirmMode(null);
@@ -518,14 +520,14 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
 
   const toggleVerifyUser = async (user) => {
     if (user.role === 'admin' && user.is_verified) {
-      Alert.alert(t('error'), t('adminCannotUnverifyAdmin'));
+      toast.show(t('adminCannotUnverifyAdmin'), { type: 'error' });
       return;
     }
     try {
       await apiService.adminUpdateUser(user.id, { is_verified: !user.is_verified });
       await refreshAdminData();
     } catch (err) {
-      Alert.alert(t('error'), extractApiErrorMessage(err, t('adminActionFailed')));
+      toast.show(extractApiErrorMessage(err, t('adminActionFailed')), { type: 'error' });
     }
   };
 
@@ -533,9 +535,9 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
     try {
       await apiService.adminUpdateUserRole(user.id, 'admin');
       await refreshAdminData();
-      Alert.alert(t('success'), t('adminPromoted'));
+      toast.show(t('adminPromoted'), { type: 'success' });
     } catch (err) {
-      Alert.alert(t('error'), extractApiErrorMessage(err, t('adminActionFailed')));
+      toast.show(extractApiErrorMessage(err, t('adminActionFailed')), { type: 'error' });
     }
   };
 
@@ -602,7 +604,7 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
         return;
       }
 
-      Alert.alert(t('error'), extractApiErrorMessage(err, t('adminLoadFailed')));
+      toast.show(extractApiErrorMessage(err, t('adminLoadFailed')), { type: 'error' });
     } finally {
       setLoadingMoreTab(null);
     }

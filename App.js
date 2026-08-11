@@ -9,6 +9,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import BrandedSplash from './src/components/BrandedSplash';
 import { navigate } from './src/navigation/navigationService';
 import * as apiService from './src/services/api';
+import ToastProvider from './src/components/ToastProvider';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -87,7 +88,11 @@ export default function App() {
           <BrandedSplash />
         ) : (
           <AuthProvider>
-            <AppNavigator />
+            <ToastProvider>
+              <React.Suspense fallback={null}>
+                <AppNavigator />
+              </React.Suspense>
+            </ToastProvider>
           </AuthProvider>
         )}
       </LanguageProvider>

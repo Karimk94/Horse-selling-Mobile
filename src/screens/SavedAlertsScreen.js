@@ -17,6 +17,7 @@ import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as apiService from '../services/api';
 import { extractApiErrorMessage } from '../utils/apiErrors';
+import { useToast } from '../components/ToastProvider';
 
 export default function SavedAlertsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -35,6 +36,8 @@ export default function SavedAlertsScreen({ navigation }) {
     vet_check_available: false,
     verified_seller: false,
   });
+  const [errors, setErrors] = useState({});
+  const toast = useToast();
 
   const loadAlerts = useCallback(async () => {
     setLoading(true);
@@ -46,7 +49,7 @@ export default function SavedAlertsScreen({ navigation }) {
       setAlerts(savedRes.data || []);
       setInbox(inboxRes.data || []);
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('savedAlertLoadFailed')));
+      toast.show(extractApiErrorMessage(error, t('savedAlertLoadFailed')), { type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -63,8 +66,35 @@ export default function SavedAlertsScreen({ navigation }) {
   };
 
   const createAlert = async () => {
-    if (!form.name.trim()) {
-      Alert.alert(t('error'), t('savedAlertNameRequired'));
+    const next = {};
+    if (!form.name.trim()) next.name = t('savedAlertNameRequired');
+    // Validate numeric price inputs before sending to backend
+    const minPriceRaw = form.min_price?.toString().trim();
+    const maxPriceRaw = form.max_price?.toString().trim();
+    let minPrice = null;
+    let maxPrice = null;
+
+    if (minPriceRaw) {
+      const parsed = Number(minPriceRaw);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        next.min_price = t('adminInvalidPrice');
+      }
+      minPrice = parsed;
+    }
+
+    if (maxPriceRaw) {
+      const parsed = Number(maxPriceRaw);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        next.max_price = t('adminInvalidPrice');
+      }
+      maxPrice = parsed;
+    }
+    if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
+      next.min_price = t('minMustBeLessOrEqualMax') || 'Min must be less than or equal to Max';
+    }
+
+    if (Object.keys(next).length > 0) {
+      setErrors(next);
       return;
     }
 
@@ -74,8 +104,8 @@ export default function SavedAlertsScreen({ navigation }) {
         name: form.name.trim(),
         breed: form.breed.trim() || null,
         discipline: form.discipline.trim() || null,
-        min_price: form.min_price ? Number(form.min_price) : null,
-        max_price: form.max_price ? Number(form.max_price) : null,
+        min_price: minPrice != null ? minPrice : null,
+        max_price: maxPrice != null ? maxPrice : null,
         vet_check_available: form.vet_check_available || null,
         verified_seller: form.verified_seller || null,
       });
@@ -89,10 +119,11 @@ export default function SavedAlertsScreen({ navigation }) {
         vet_check_available: false,
         verified_seller: false,
       });
+      setErrors({});
       await loadAlerts();
-      Alert.alert(t('success'), t('savedAlertCreated'));
+        toast.show(t('savedAlertCreated'), { type: 'success' });
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('savedAlertCreateFailed')));
+      toast.show(extractApiErrorMessage(error, t('savedAlertCreateFailed')), { type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -103,7 +134,7 @@ export default function SavedAlertsScreen({ navigation }) {
       await apiService.deleteSavedSearch(id);
       await loadAlerts();
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('savedAlertDeleteFailed')));
+      toast.show(extractApiErrorMessage(error, t('savedAlertDeleteFailed')), { type: 'error' });
     }
   };
 
@@ -112,7 +143,7 @@ export default function SavedAlertsScreen({ navigation }) {
       await apiService.markSavedSearchAlertRead(id);
       await loadAlerts();
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('savedAlertMarkReadFailed')));
+      toast.show(extractApiErrorMessage(error, t('savedAlertMarkReadFailed')), { type: 'error' });
     }
   };
 
@@ -125,7 +156,7 @@ export default function SavedAlertsScreen({ navigation }) {
       await loadAlerts();
       navigation.navigate('HorseDetail', { horse: res.data });
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('savedAlertOpenFailed')));
+      toast.show(extractApiErrorMessage(error, t('savedAlertOpenFailed')), { type: 'error' });
     }
   };
 
@@ -134,7 +165,7 @@ export default function SavedAlertsScreen({ navigation }) {
       await apiService.markAllSavedSearchAlertsRead();
       await loadAlerts();
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('savedAlertMarkReadFailed')));
+      toast.show(extractApiErrorMessage(error, t('savedAlertMarkReadFailed')), { type: 'error' });
     }
   };
 
@@ -158,9 +189,13 @@ export default function SavedAlertsScreen({ navigation }) {
             placeholder={t('savedAlertName')}
             placeholderTextColor={COLORS.textLight}
             value={form.name}
-            onChangeText={(v) => updateForm('name', v)}
+            onChangeText={(v) => {
+              updateForm('name', v);
+              if (errors.name) setErrors((e) => { const n = { ...e }; delete n.name; return n; });
+            }}
             textAlign={isRTL ? 'right' : 'left'}
           />
+          {errors.name && <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors.name}</Text>}
           <TextInput
             style={[styles.input, isRTL && styles.inputRTL]}
             placeholder={t('breedFilterPlaceholder')}
@@ -184,7 +219,10 @@ export default function SavedAlertsScreen({ navigation }) {
               placeholder={t('min')}
               placeholderTextColor={COLORS.textLight}
               value={form.min_price}
-              onChangeText={(v) => updateForm('min_price', v)}
+              onChangeText={(v) => {
+                updateForm('min_price', v);
+                if (errors.min_price) setErrors((e) => { const n = { ...e }; delete n.min_price; return n; });
+              }}
               keyboardType="numeric"
               textAlign={isRTL ? 'right' : 'left'}
             />
@@ -193,10 +231,16 @@ export default function SavedAlertsScreen({ navigation }) {
               placeholder={t('max')}
               placeholderTextColor={COLORS.textLight}
               value={form.max_price}
-              onChangeText={(v) => updateForm('max_price', v)}
+              onChangeText={(v) => {
+                updateForm('max_price', v);
+                if (errors.max_price) setErrors((e) => { const n = { ...e }; delete n.max_price; return n; });
+              }}
               keyboardType="numeric"
               textAlign={isRTL ? 'right' : 'left'}
             />
+          {(errors.min_price || errors.max_price) && (
+            <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors.min_price || errors.max_price}</Text>
+          )}
           </View>
 
           <View style={[styles.switchRow, isRTL && styles.rowRTL]}>

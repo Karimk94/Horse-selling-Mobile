@@ -21,11 +21,13 @@ import HorseCard from '../components/HorseCard';
 import EmptyState from '../components/EmptyState';
 import * as apiService from '../services/api';
 import { extractApiErrorMessage } from '../utils/apiErrors';
+import { useToast } from '../components/ToastProvider';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated, signOut, refreshProfile } = useAuth();
   const { t, isRTL, setLanguage, language } = useLanguage();
+  const toast = useToast();
   const [myListings, setMyListings] = useState([]);
   const [listingsPage, setListingsPage] = useState(0);
   const [listingsTotal, setListingsTotal] = useState(0);
@@ -131,7 +133,7 @@ export default function ProfileScreen({ navigation }) {
       await refreshProfile();
       setEditing(false);
     } catch (err) {
-      Alert.alert(t('error'), extractApiErrorMessage(err, 'Failed to update profile'));
+      toast.show(extractApiErrorMessage(err, 'Failed to update profile'), { type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -143,9 +145,9 @@ export default function ProfileScreen({ navigation }) {
     try {
       await apiService.sendOtp(user.email);
       setOtpSent(true);
-      Alert.alert(t('success'), t('otpSentMsg'));
+      toast.show(t('otpSentMsg'), { type: 'success' });
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('verificationFailed')));
+      toast.show(extractApiErrorMessage(error, t('verificationFailed')), { type: 'error' });
     } finally {
       setVerifyingEmail(false);
     }
@@ -153,7 +155,7 @@ export default function ProfileScreen({ navigation }) {
 
   const handleVerifyEmail = async () => {
     if (!otpCode.trim()) {
-      Alert.alert(t('error'), t('otpRequired'));
+      toast.show(t('otpRequired'), { type: 'error' });
       return;
     }
     setVerifyingEmail(true);
@@ -162,9 +164,9 @@ export default function ProfileScreen({ navigation }) {
       await refreshProfile();
       setOtpCode('');
       setOtpSent(false);
-      Alert.alert(t('success'), t('verificationSuccess'));
+      toast.show(t('verificationSuccess'), { type: 'success' });
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('verificationFailed')));
+      toast.show(extractApiErrorMessage(error, t('verificationFailed')), { type: 'error' });
     } finally {
       setVerifyingEmail(false);
     }
@@ -178,7 +180,7 @@ export default function ProfileScreen({ navigation }) {
       await refreshProfile();
     } catch (error) {
       setLanguage(language);
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('languageUpdateFailed')));
+      toast.show(extractApiErrorMessage(error, t('languageUpdateFailed')), { type: 'error' });
     }
   };
 

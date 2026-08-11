@@ -16,6 +16,7 @@ import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as apiService from '../services/api';
 import { extractApiErrorMessage } from '../utils/apiErrors';
+import { useToast } from '../components/ToastProvider';
 
 const ROLE_OPTIONS = ['buyer', 'seller', 'both', 'admin'];
 
@@ -34,6 +35,7 @@ export default function AdminEditUserScreen({ route, navigation }) {
     role: user?.role || 'buyer',
     is_verified: !!user?.is_verified,
   });
+  const toast = useToast();
 
   const update = (key, value) => {
     setForm((p) => ({ ...p, [key]: value }));
@@ -47,7 +49,7 @@ export default function AdminEditUserScreen({ route, navigation }) {
 
   const toggleVerified = () => {
     if (user?.role === 'admin' && form.is_verified) {
-      Alert.alert(t('error'), t('adminCannotUnverifyAdmin'));
+      toast.show(t('adminCannotUnverifyAdmin'), { type: 'error' });
       return;
     }
     update('is_verified', !form.is_verified);
@@ -80,11 +82,10 @@ export default function AdminEditUserScreen({ route, navigation }) {
         role: form.role,
         is_verified: form.is_verified,
       });
-      Alert.alert(t('success'), t('adminUserUpdated'), [
-        { text: t('ok'), onPress: () => navigation.goBack() },
-      ]);
+      toast.show(t('adminUserUpdated'), { type: 'success' });
+      navigation.goBack();
     } catch (err) {
-      Alert.alert(t('error'), extractApiErrorMessage(err, t('adminActionFailed')));
+      toast.show(extractApiErrorMessage(err, t('adminActionFailed')), { type: 'error' });
     } finally {
       setSaving(false);
     }

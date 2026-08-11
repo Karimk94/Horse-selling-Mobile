@@ -18,16 +18,20 @@ const TYPOGRAPHY = {
   weights: { semibold: '600' },
 };
 import * as apiService from '../services/api';
+import { useToast } from '../components/ToastProvider';
 
 const OfferHistorySheet = ({ horseId, isVisible, onClose, userRole = 'buyer', onOfferUpdated }) => {
   const { t } = useLanguage();
   const [offers, setOffers] = useState([]);
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState(null);
   const [showOfferForm, setShowOfferForm] = useState(false);
   const [showResponseForm, setShowResponseForm] = useState(false);
   const [formData, setFormData] = useState({ amount: '', message: '' });
   const [responseData, setResponseData] = useState({ counterAmount: '', responseMessage: '' });
+  const [formErrors, setFormErrors] = useState({});
+  const [responseErrors, setResponseErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -48,36 +52,40 @@ const OfferHistorySheet = ({ horseId, isVisible, onClose, userRole = 'buyer', on
         setOffers(horseOffers);
       }
     } catch (error) {
-      Alert.alert(t('error'), t('offerLoadFailed'));
+      toast.show(t('offerLoadFailed'), { type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
   const handleCreateOffer = async () => {
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      Alert.alert(t('error'), t('offerAmountRequired'));
+    setFormErrors({});
+    const amountVal = Number(formData.amount);
+    if (!Number.isFinite(amountVal) || amountVal <= 0) {
+      setFormErrors({ amount: t('offerAmountRequired') });
       return;
     }
 
     setSubmitting(true);
     try {
       await apiService.createOffer(horseId, parseFloat(formData.amount), formData.message);
-      Alert.alert(t('success'), t('offerCreated'));
+      toast.show(t('offerCreated'), { type: 'success' });
       setFormData({ amount: '', message: '' });
       setShowOfferForm(false);
       await loadOffers();
       onOfferUpdated?.();
     } catch (error) {
-      Alert.alert(t('error'), t('offerCreateFailed'));
+      toast.show(t('offerCreateFailed'), { type: 'error' });
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleCounterOffer = async () => {
-    if (!responseData.counterAmount || parseFloat(responseData.counterAmount) <= 0) {
-      Alert.alert(t('error'), t('counterAmountRequired'));
+    setResponseErrors({});
+    const counterVal = Number(responseData.counterAmount);
+    if (!Number.isFinite(counterVal) || counterVal <= 0) {
+      setResponseErrors({ counterAmount: t('counterAmountRequired') });
       return;
     }
 
@@ -88,14 +96,14 @@ const OfferHistorySheet = ({ horseId, isVisible, onClose, userRole = 'buyer', on
         parseFloat(responseData.counterAmount),
         responseData.responseMessage
       );
-      Alert.alert(t('success'), t('counterOfferSent'));
+      toast.show(t('counterOfferSent'), { type: 'success' });
       setResponseData({ counterAmount: '', responseMessage: '' });
       setShowResponseForm(false);
       setSelectedOffer(null);
       await loadOffers();
       onOfferUpdated?.();
     } catch (error) {
-      Alert.alert(t('error'), t('counterOfferFailed'));
+      toast.show(t('counterOfferFailed'), { type: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -113,14 +121,14 @@ const OfferHistorySheet = ({ horseId, isVisible, onClose, userRole = 'buyer', on
             setSubmitting(true);
             try {
               await apiService.acceptOffer(selectedOffer.id, responseData.responseMessage);
-              Alert.alert(t('success'), t('offerAccepted'));
+              toast.show(t('offerAccepted'), { type: 'success' });
               setResponseData({ counterAmount: '', responseMessage: '' });
               setShowResponseForm(false);
               setSelectedOffer(null);
               await loadOffers();
               onOfferUpdated?.();
             } catch (error) {
-              Alert.alert(t('error'), t('offerAcceptFailed'));
+              toast.show(t('offerAcceptFailed'), { type: 'error' });
             } finally {
               setSubmitting(false);
             }
@@ -142,14 +150,14 @@ const OfferHistorySheet = ({ horseId, isVisible, onClose, userRole = 'buyer', on
             setSubmitting(true);
             try {
               await apiService.rejectOffer(selectedOffer.id, responseData.responseMessage);
-              Alert.alert(t('success'), t('offerRejected'));
+              toast.show(t('offerRejected'), { type: 'success' });
               setResponseData({ counterAmount: '', responseMessage: '' });
               setShowResponseForm(false);
               setSelectedOffer(null);
               await loadOffers();
               onOfferUpdated?.();
             } catch (error) {
-              Alert.alert(t('error'), t('offerRejectFailed'));
+              toast.show(t('offerRejectFailed'), { type: 'error' });
             } finally {
               setSubmitting(false);
             }
@@ -209,6 +217,9 @@ const OfferHistorySheet = ({ horseId, isVisible, onClose, userRole = 'buyer', on
               keyboardType="decimal-pad"
               editable={!submitting}
             />
+            {formErrors.amount && (
+              <Text style={styles.errorText}>{formErrors.amount}</Text>
+            )}
             <TextInput
               style={[styles.input, styles.messageInput]}
               placeholder={t('offerMessage')}
@@ -223,6 +234,7 @@ const OfferHistorySheet = ({ horseId, isVisible, onClose, userRole = 'buyer', on
                 onPress={() => {
                   setShowOfferForm(false);
                   setFormData({ amount: '', message: '' });
+                  setFormErrors({});
                 }}
                 disabled={submitting}
               >
@@ -376,6 +388,9 @@ const OfferHistorySheet = ({ horseId, isVisible, onClose, userRole = 'buyer', on
                       keyboardType="decimal-pad"
                       editable={!submitting}
                     />
+                        {responseErrors.counterAmount && (
+                          <Text style={styles.errorText}>{responseErrors.counterAmount}</Text>
+                        )}
                   </>
                 )}
                 {(showResponseForm === 'reject' || showResponseForm === 'accept') && (
@@ -399,6 +414,7 @@ const OfferHistorySheet = ({ horseId, isVisible, onClose, userRole = 'buyer', on
                     onPress={() => {
                       setShowResponseForm(false);
                       setResponseData({ counterAmount: '', responseMessage: '' });
+                      setResponseErrors({});
                     }}
                     disabled={submitting}
                   >
@@ -657,6 +673,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
+  },
+  errorText: {
+    color: COLORS.error,
+    marginBottom: 12,
+    fontSize: TYPOGRAPHY.sizes.xs,
   },
 });
 

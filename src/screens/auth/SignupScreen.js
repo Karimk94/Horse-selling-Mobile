@@ -11,12 +11,14 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { extractApiErrorMessage } from '../../utils/apiErrors';
+import { useToast } from '../../components/ToastProvider';
 
 export default function SignupScreen({ navigation }) {
   const { signUp } = useAuth();
@@ -40,6 +42,7 @@ export default function SignupScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const toast = useToast();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -78,7 +81,7 @@ export default function SignupScreen({ navigation }) {
     if (!form.email.trim()) errs.email = t('emailRequired');
     else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = t('emailInvalid');
     if (!form.password) errs.password = t('passwordRequired');
-    else if (form.password.length < 6) errs.password = t('passwordMin6');
+    else if (form.password.length < 8) errs.password = t('passwordMin');
     if (form.password !== form.confirmPassword)
       errs.confirmPassword = t('passwordsMismatch');
     if (!form.first_name.trim()) errs.first_name = t('firstNameRequired');
@@ -93,13 +96,10 @@ export default function SignupScreen({ navigation }) {
     try {
       const { confirmPassword, ...data } = form;
       await signUp({ ...data, language });
-      Alert.alert(
-        t('accountCreated'),
-        t('accountCreatedMsg'),
-        [{ text: t('ok'), onPress: closeAuthModal }]
-      );
+      toast.show(t('accountCreatedMsg'), { type: 'success' });
+      closeAuthModal();
     } catch (err) {
-      Alert.alert(t('error'), extractApiErrorMessage(err, t('signupFailed')));
+      toast.show(extractApiErrorMessage(err, t('signupFailed')), { type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -173,7 +173,11 @@ export default function SignupScreen({ navigation }) {
             </View>
             <View style={[styles.logoRow, isRTL && styles.rowRTL]}>
               <View style={styles.logoCircle}>
-                <MaterialCommunityIcons name="horse-variant" size={32} color={COLORS.primary} />
+                <Image
+                  source={require('../../../assets/icon.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
               </View>
               <Text style={styles.appName}>{t('appName')}</Text>
             </View>
@@ -338,6 +342,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryLight + '15',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  logoImage: {
+    width: 24,
+    height: 24,
   },
   appName: {
     ...FONTS.h2,

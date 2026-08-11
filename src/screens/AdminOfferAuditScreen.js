@@ -17,6 +17,7 @@ import { COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../config/theme';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as apiService from '../services/api';
 import { extractApiErrorMessage } from '../utils/apiErrors';
+import { useToast } from '../components/ToastProvider';
 
 const ACTOR_OPTIONS = [
   { key: null, labelKey: 'adminActorAll' },
@@ -46,15 +47,18 @@ export default function AdminOfferAuditScreen({ navigation, route }) {
   const [offerId, setOfferId] = useState(initialOfferId);
   const [actor, setActor] = useState(null);
   const [toStatus, setToStatus] = useState(null);
+  const [offerIdError, setOfferIdError] = useState('');
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(Boolean(initialOfferId));
+  const toast = useToast();
 
   const loadAudit = useCallback(async () => {
     const normalizedOfferId = offerId.trim();
+    setOfferIdError('');
     if (!UUID_PATTERN.test(normalizedOfferId)) {
-      Alert.alert(t('error'), t('adminOfferAuditInvalidId'));
+      setOfferIdError(t('adminOfferAuditInvalidId'));
       return;
     }
 
@@ -70,7 +74,7 @@ export default function AdminOfferAuditScreen({ navigation, route }) {
     } catch (err) {
       setLogs([]);
       setTotal(0);
-      Alert.alert(t('error'), extractApiErrorMessage(err, t('adminOfferAuditLoadFailed')));
+      toast.show(extractApiErrorMessage(err, t('adminOfferAuditLoadFailed')), { type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -111,6 +115,7 @@ export default function AdminOfferAuditScreen({ navigation, route }) {
             autoCorrect={false}
             textAlign={isRTL ? 'right' : 'left'}
           />
+          {offerIdError ? <Text style={[styles.errorText, isRTL && styles.textRTL]}>{offerIdError}</Text> : null}
 
           <Text style={[styles.filterLabel, isRTL && styles.textRTL]}>{t('adminActorAll')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.chipRow, isRTL && styles.rowRTL]}>

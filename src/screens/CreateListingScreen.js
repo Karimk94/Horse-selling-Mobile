@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as apiService from '../services/api';
+import { useToast } from '../components/ToastProvider';
 import HORSE_BREEDS from '../data/horseBreeds';
 import { extractApiErrorMessage } from '../utils/apiErrors';
 
@@ -36,6 +37,7 @@ export default function CreateListingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { isAuthenticated } = useAuth();
   const { t, isRTL } = useLanguage();
+  const toast = useToast();
   const [form, setForm] = useState({
     title: '',
     price: '',
@@ -87,14 +89,14 @@ export default function CreateListingScreen({ navigation }) {
       updateForm('height', value.toFixed(1));
       setHeightModalVisible(false);
     } else {
-      Alert.alert(t('invalidInput'), `${t('heightLabel')} ${t('mustBeBetween')} ${HEIGHT_MIN} ${t('and')} ${HEIGHT_MAX}`);
+      setErrors((prev) => ({ ...prev, height: `${t('heightLabel')} ${t('mustBeBetween')} ${HEIGHT_MIN} ${t('and')} ${HEIGHT_MAX}` }));
     }
   };
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(t('permissionNeeded'), t('permissionNeededMsg'));
+      toast.show(t('permissionNeededMsg'), { type: 'error' });
       return;
     }
 
@@ -106,13 +108,38 @@ export default function CreateListingScreen({ navigation }) {
     });
 
     if (!result.canceled && result.assets) {
-      setImages((prev) => [...prev, ...result.assets.map((a) => a.uri)]);
+      const newUris = result.assets.map((a) => a.uri).filter(Boolean);
+      if (newUris.length > 0) {
+        setImages((prev) => [...prev, ...newUris]);
+        setErrors((prev) => {
+          if (!prev.images) return prev;
+          const next = { ...prev };
+          delete next.images;
+          return next;
+        });
+      }
     }
   };
 
   const removeImage = (index) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
+    setErrors((prev) => {
+      if (!prev.images) return prev;
+      const next = { ...prev };
+      delete next.images;
+      return next;
+    });
   };
+
+  useEffect(() => {
+    if (images.length > 0 && errors.images) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.images;
+        return next;
+      });
+    }
+  }, [images, errors.images]);
 
   const pickVetCertificate = async () => {
     try {
@@ -131,7 +158,7 @@ export default function CreateListingScreen({ navigation }) {
         return next;
       });
     } catch {
-      Alert.alert(t('error'), t('certificatePickFailed'));
+      toast.show(t('certificatePickFailed'), { type: 'error' });
     }
   };
 
@@ -142,9 +169,22 @@ export default function CreateListingScreen({ navigation }) {
   const validate = () => {
     const errs = {};
     if (!form.title.trim()) errs.title = t('titleRequired');
-    if (!form.price) errs.price = t('priceRequired');
+
+    const price = Number(form.price);
+    if (!form.price.trim()) errs.price = t('priceRequired');
+    else if (!Number.isFinite(price) || price <= 0) errs.price = t('adminInvalidPrice');
+
     if (!form.breed.trim()) errs.breed = t('breedRequired');
-    if (!form.age) errs.age = t('ageRequired');
+
+    const age = Number(form.age);
+    if (!form.age.trim()) errs.age = t('ageRequired');
+    else if (!Number.isFinite(age) || age < 0 || !Number.isInteger(age)) errs.age = t('adminInvalidAge');
+
+    if (form.height.trim()) {
+      const height = Number(form.height);
+      if (!Number.isFinite(height) || height <= 0) errs.height = t('adminInvalidHeight');
+    }
+
     if (images.length === 0) errs.images = t('imagesRequired');
     if (!form.description.trim() || form.description.trim().length < 30) {
       errs.description = t('descriptionMinLength');
@@ -201,14 +241,10 @@ export default function CreateListingScreen({ navigation }) {
       };
 
       await apiService.createHorse(data);
-      Alert.alert(t('success'), t('listingSubmitted'), [
-        { text: t('ok'), onPress: () => navigation.goBack() },
-      ]);
+      toast.show(t('listingSubmitted'), { type: 'success' });
+      navigation.goBack();
     } catch (err) {
-      Alert.alert(
-        t('error'),
-        extractApiErrorMessage(err, 'Failed to create listing. Please try again.')
-      );
+      toast.show(extractApiErrorMessage(err, 'Failed to create listing. Please try again.'), { type: 'error' });
     } finally {
       setLoading(false);
     }

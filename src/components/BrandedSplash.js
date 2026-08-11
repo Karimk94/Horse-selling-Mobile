@@ -1,21 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 
 export default function BrandedSplash() {
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <View style={styles.logoCircle}>
-          <MaterialCommunityIcons
-            name="horse-variant"
-            size={64}
-            color={COLORS.primary}
-          />
-        </View>
-        <Text style={styles.brandEn}>SteedMarket</Text>
-        <Text style={styles.brandAr}>ستيد ماركت</Text>
+        <Image
+          source={require('../../assets/icon.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
       </View>
     </View>
   );
@@ -46,6 +41,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.md,
+  },
+  logoImage: {
+    width: 60,
+    height: 60,
   },
   brandEn: {
     ...FONTS.h1,

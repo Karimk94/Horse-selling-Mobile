@@ -20,6 +20,7 @@ const GENDER_OPTIONS = ['mare', 'gelding', 'stallion'];
 export default function FilterModal({ visible, onClose, onApply, initialFilters }) {
   const { t, isRTL } = useLanguage();
   const [filters, setFilters] = useState(initialFilters || {});
+  const [errors, setErrors] = useState({});
 
   const updateFilter = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -30,11 +31,78 @@ export default function FilterModal({ visible, onClose, onApply, initialFilters 
   };
 
   const handleApply = () => {
-    // Remove empty/undefined values
+    // Validate numeric ranges (price, age) before applying
+    const minPriceRaw = filters.min_price?.toString().trim();
+    const maxPriceRaw = filters.max_price?.toString().trim();
+    let minPrice = null;
+    let maxPrice = null;
+
+    if (minPriceRaw) {
+      const parsed = Number(minPriceRaw);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        setErrors((e) => ({ ...e, min_price: t('adminInvalidPrice') }));
+      } else {
+        minPrice = parsed;
+      }
+    }
+
+    if (maxPriceRaw) {
+      const parsed = Number(maxPriceRaw);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        setErrors((e) => ({ ...e, max_price: t('adminInvalidPrice') }));
+      } else {
+        maxPrice = parsed;
+      }
+    }
+
+    if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
+      setErrors((e) => ({ ...e, min_price: t('minMustBeLessOrEqualMax') || 'Min must be less than or equal to Max' }));
+    }
+
+    // Age range validation
+    const minAgeRaw = filters.min_age?.toString().trim();
+    const maxAgeRaw = filters.max_age?.toString().trim();
+    let minAge = null;
+    let maxAge = null;
+
+    if (minAgeRaw) {
+      const parsed = Number(minAgeRaw);
+      if (!Number.isFinite(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
+        setErrors((e) => ({ ...e, min_age: t('adminInvalidAge') }));
+      } else {
+        minAge = parsed;
+      }
+    }
+
+    if (maxAgeRaw) {
+      const parsed = Number(maxAgeRaw);
+      if (!Number.isFinite(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
+        setErrors((e) => ({ ...e, max_age: t('adminInvalidAge') }));
+      } else {
+        maxAge = parsed;
+      }
+    }
+
+    if (minAge != null && maxAge != null && minAge > maxAge) {
+      setErrors((e) => ({ ...e, min_age: t('minMustBeLessOrEqualMax') || 'Min must be less than or equal to Max' }));
+    }
+
+    // Remove empty/undefined values and convert validated ranges to numbers
     const cleaned = {};
-    Object.entries(filters).forEach(([k, v]) => {
+    const converted = { ...filters };
+    if (minPrice != null) converted.min_price = minPrice;
+    if (maxPrice != null) converted.max_price = maxPrice;
+    if (minAge != null) converted.min_age = minAge;
+    if (maxAge != null) converted.max_age = maxAge;
+
+    // If any errors were set during validation, abort and show them inline
+    if (Object.keys(errors).length > 0) return;
+
+    Object.entries(converted).forEach(([k, v]) => {
       if (v !== '' && v !== undefined && v !== null) cleaned[k] = v;
     });
+
+    setErrors({});
     onApply(cleaned);
     onClose();
   };
@@ -182,9 +250,10 @@ export default function FilterModal({ visible, onClose, onApply, initialFilters 
                   placeholderTextColor={COLORS.textLight}
                   keyboardType="numeric"
                   value={filters.min_price?.toString() || ''}
-                  onChangeText={(v) =>
-                    updateFilter('min_price', v ? Number(v) : '')
-                  }
+                  onChangeText={(v) => {
+                    updateFilter('min_price', v);
+                    if (errors.min_price) setErrors((e) => { const n = { ...e }; delete n.min_price; return n; });
+                  }}
                   textAlign={isRTL ? 'right' : 'left'}
                 />
                 <Text style={styles.rangeSeparator}>–</Text>
@@ -194,11 +263,15 @@ export default function FilterModal({ visible, onClose, onApply, initialFilters 
                   placeholderTextColor={COLORS.textLight}
                   keyboardType="numeric"
                   value={filters.max_price?.toString() || ''}
-                  onChangeText={(v) =>
-                    updateFilter('max_price', v ? Number(v) : '')
-                  }
+                  onChangeText={(v) => {
+                    updateFilter('max_price', v);
+                    if (errors.max_price) setErrors((e) => { const n = { ...e }; delete n.max_price; return n; });
+                  }}
                   textAlign={isRTL ? 'right' : 'left'}
                 />
+              {(errors.min_price || errors.max_price) && (
+                <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors.min_price || errors.max_price}</Text>
+              )}
               </View>
             </View>
 
@@ -212,9 +285,10 @@ export default function FilterModal({ visible, onClose, onApply, initialFilters 
                   placeholderTextColor={COLORS.textLight}
                   keyboardType="numeric"
                   value={filters.min_age?.toString() || ''}
-                  onChangeText={(v) =>
-                    updateFilter('min_age', v ? Number(v) : '')
-                  }
+                  onChangeText={(v) => {
+                    updateFilter('min_age', v);
+                    if (errors.min_age) setErrors((e) => { const n = { ...e }; delete n.min_age; return n; });
+                  }}
                   textAlign={isRTL ? 'right' : 'left'}
                 />
                 <Text style={styles.rangeSeparator}>–</Text>
@@ -224,11 +298,15 @@ export default function FilterModal({ visible, onClose, onApply, initialFilters 
                   placeholderTextColor={COLORS.textLight}
                   keyboardType="numeric"
                   value={filters.max_age?.toString() || ''}
-                  onChangeText={(v) =>
-                    updateFilter('max_age', v ? Number(v) : '')
-                  }
+                  onChangeText={(v) => {
+                    updateFilter('max_age', v);
+                    if (errors.max_age) setErrors((e) => { const n = { ...e }; delete n.max_age; return n; });
+                  }}
                   textAlign={isRTL ? 'right' : 'left'}
                 />
+              {(errors.min_age || errors.max_age) && (
+                <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors.min_age || errors.max_age}</Text>
+              )}
               </View>
             </View>
           </ScrollView>

@@ -20,6 +20,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import * as apiService from '../services/api';
 import HORSE_BREEDS from '../data/horseBreeds';
 import { extractApiErrorMessage } from '../utils/apiErrors';
+import { useToast } from '../components/ToastProvider';
 
 export default function AdminEditHorseScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
@@ -46,6 +47,7 @@ export default function AdminEditHorseScreen({ route, navigation }) {
     height: horse?.height != null ? String(horse.height) : '',
     description: horse?.description || '',
   });
+  const toast = useToast();
 
   const update = (key, value) => {
     setForm((p) => ({ ...p, [key]: value }));
@@ -88,7 +90,7 @@ export default function AdminEditHorseScreen({ route, navigation }) {
   const save = async () => {
     if (!validate()) return;
     if (images.length === 0) {
-      Alert.alert(t('error'), t('imagesRequired'));
+      setErrors((prev) => ({ ...prev, images: t('imagesRequired') }));
       return;
     }
 
@@ -104,11 +106,10 @@ export default function AdminEditHorseScreen({ route, navigation }) {
         description: form.description.trim() || null,
         image_urls: images,
       });
-      Alert.alert(t('success'), t('adminHorseUpdated'), [
-        { text: t('ok'), onPress: () => navigation.goBack() },
-      ]);
+      toast.show(t('adminHorseUpdated'), { type: 'success' });
+      navigation.goBack();
     } catch (err) {
-      Alert.alert(t('error'), extractApiErrorMessage(err, t('adminActionFailed')));
+      toast.show(extractApiErrorMessage(err, t('adminActionFailed')), { type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -138,7 +139,7 @@ export default function AdminEditHorseScreen({ route, navigation }) {
 
   const removeImageAtIndex = (indexToRemove) => {
     if (images.length <= 1) {
-      Alert.alert(t('error'), t('imagesRequired'));
+      setErrors((prev) => ({ ...prev, images: t('imagesRequired') }));
       return;
     }
 

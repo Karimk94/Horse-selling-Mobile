@@ -24,6 +24,7 @@ import * as apiService from '../services/api';
 import { calculateHorseTrustScore } from '../utils/trustScore';
 import OfferHistorySheet from '../components/OfferHistorySheet';
 import { extractApiErrorMessage } from '../utils/apiErrors';
+import { useToast } from '../components/ToastProvider';
 
 const { width } = Dimensions.get('window');
 const IMAGE_HEIGHT = 320;
@@ -32,6 +33,7 @@ export default function HorseDetailScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const { isAuthenticated, user } = useAuth();
   const { t, isRTL } = useLanguage();
+  const toast = useToast();
   const initialHorse = route?.params?.horse || null;
   const fallbackHorseId =
     initialHorse?.id ||
@@ -169,12 +171,12 @@ export default function HorseDetailScreen({ route, navigation }) {
     try {
       const supported = await Linking.canOpenURL(url);
       if (!supported) {
-        Alert.alert(t('error'), t('certificateOpenFailed'));
+        toast.show(t('certificateOpenFailed'), { type: 'error' });
         return;
       }
       await Linking.openURL(url);
     } catch {
-      Alert.alert(t('error'), t('certificateOpenFailed'));
+      toast.show(t('certificateOpenFailed'), { type: 'error' });
     }
   };
 
@@ -183,10 +185,10 @@ export default function HorseDetailScreen({ route, navigation }) {
     setReopening(true);
     try {
       await apiService.reopenHorseListing(horse.id);
-      Alert.alert(t('success'), t('listingReopened'));
+      toast.show(t('listingReopened'), { type: 'success' });
       navigation.goBack();
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('listingReopenFailed')));
+      toast.show(extractApiErrorMessage(error, t('listingReopenFailed')), { type: 'error' });
     } finally {
       setReopening(false);
     }
@@ -205,12 +207,12 @@ export default function HorseDetailScreen({ route, navigation }) {
           style: 'destructive',
           onPress: async () => {
             setDeleting(true);
-            try {
-              await apiService.deleteHorse(horse.id);
-              Alert.alert(t('success'), t('listingDeleted'));
-              navigation.goBack();
-            } catch (error) {
-              Alert.alert(t('error'), extractApiErrorMessage(error, t('listingDeleteFailed')));
+              try {
+                await apiService.deleteHorse(horse.id);
+                toast.show(t('listingDeleted'), { type: 'success' });
+                navigation.goBack();
+              } catch (error) {
+              toast.show(extractApiErrorMessage(error, t('listingDeleteFailed')), { type: 'error' });
             } finally {
               setDeleting(false);
             }
@@ -227,9 +229,9 @@ export default function HorseDetailScreen({ route, navigation }) {
     try {
       const res = await apiService.restoreHorseListing(horse.id);
       setHorse(res.data);
-      Alert.alert(t('success'), t('listingRestored'));
+      toast.show(t('listingRestored'), { type: 'success' });
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('listingRestoreFailed')));
+      toast.show(extractApiErrorMessage(error, t('listingRestoreFailed')), { type: 'error' });
     } finally {
       setRestoring(false);
     }

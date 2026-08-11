@@ -18,6 +18,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import * as apiService from '../services/api';
 import { extractApiErrorMessage } from '../utils/apiErrors';
+import { useToast } from '../components/ToastProvider';
 
 const ROLE_OPTIONS = ['all', 'buyer', 'seller'];
 const STATUS_OPTIONS = [null, 'pending', 'countered', 'accepted', 'rejected'];
@@ -27,6 +28,7 @@ export default function OffersScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { t, isRTL } = useLanguage();
   const { user } = useAuth();
+  const toast = useToast();
 
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -38,6 +40,7 @@ export default function OffersScreen({ navigation }) {
   const [statusFilter, setStatusFilter] = useState(null);
   const [counterOfferId, setCounterOfferId] = useState(null);
   const [counterAmount, setCounterAmount] = useState('');
+  const [counterError, setCounterError] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
   const loadOffers = useCallback(async (reset = true, silent = false) => {
@@ -55,7 +58,7 @@ export default function OffersScreen({ navigation }) {
       setHasMore(Boolean(res.data?.has_more));
       setOffers((prev) => (reset ? incomingOffers : [...prev, ...incomingOffers]));
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('offerLoadFailed')));
+      toast.show(extractApiErrorMessage(error, t('offerLoadFailed')), { type: 'error' });
       if (reset) {
         setOffers([]);
         setTotalOffers(0);
@@ -102,9 +105,9 @@ export default function OffersScreen({ navigation }) {
     try {
       await apiService.acceptOffer(offer.id, null);
       await loadOffers(true);
-      Alert.alert(t('success'), t('offerAccepted'));
+      toast.show(t('offerAccepted'), { type: 'success' });
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('offerAcceptFailed')));
+      toast.show(extractApiErrorMessage(error, t('offerAcceptFailed')), { type: 'error' });
     } finally {
       setActionLoadingId(null);
     }
@@ -115,9 +118,9 @@ export default function OffersScreen({ navigation }) {
     try {
       await apiService.rejectOffer(offer.id, null);
       await loadOffers(true);
-      Alert.alert(t('success'), t('offerRejected'));
+      toast.show(t('offerRejected'), { type: 'success' });
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('offerRejectFailed')));
+      toast.show(extractApiErrorMessage(error, t('offerRejectFailed')), { type: 'error' });
     } finally {
       setActionLoadingId(null);
     }
@@ -125,8 +128,8 @@ export default function OffersScreen({ navigation }) {
 
   const handleCounter = async (offer) => {
     const parsed = Number(counterAmount);
-    if (!parsed || parsed <= 0) {
-      Alert.alert(t('error'), t('counterAmountRequired'));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setCounterError(t('counterAmountRequired'));
       return;
     }
     setActionLoadingId(offer.id);
@@ -134,10 +137,11 @@ export default function OffersScreen({ navigation }) {
       await apiService.counterOffer(offer.id, parsed, null);
       setCounterOfferId(null);
       setCounterAmount('');
+      setCounterError('');
       await loadOffers(true);
-      Alert.alert(t('success'), t('counterOfferSent'));
+      toast.show(t('counterOfferSent'), { type: 'success' });
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('counterOfferFailed')));
+      toast.show(extractApiErrorMessage(error, t('counterOfferFailed')), { type: 'error' });
     } finally {
       setActionLoadingId(null);
     }
@@ -148,9 +152,9 @@ export default function OffersScreen({ navigation }) {
     try {
       await apiService.cancelOffer(offer.id, null);
       await loadOffers(true);
-      Alert.alert(t('success'), t('offerCancelled'));
+      toast.show(t('offerCancelled'), { type: 'success' });
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('offerCancelFailed')));
+      toast.show(extractApiErrorMessage(error, t('offerCancelFailed')), { type: 'error' });
     } finally {
       setActionLoadingId(null);
     }
@@ -161,9 +165,9 @@ export default function OffersScreen({ navigation }) {
     try {
       await apiService.markOfferHorseSold(offer.id);
       await loadOffers(true);
-      Alert.alert(t('success'), t('horseMarkedSold'));
+      toast.show(t('horseMarkedSold'), { type: 'success' });
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('markSoldFailed')));
+      toast.show(extractApiErrorMessage(error, t('markSoldFailed')), { type: 'error' });
     } finally {
       setActionLoadingId(null);
     }
@@ -204,7 +208,7 @@ export default function OffersScreen({ navigation }) {
       const res = await apiService.getHorse(offer.horse_id);
       navigation.navigate('HorseDetail', { horse: res.data });
     } catch (error) {
-      Alert.alert(t('error'), extractApiErrorMessage(error, t('savedAlertOpenFailed')));
+      toast.show(extractApiErrorMessage(error, t('savedAlertOpenFailed')), { type: 'error' });
     }
   };
 
@@ -334,8 +338,11 @@ export default function OffersScreen({ navigation }) {
                     placeholderTextColor={COLORS.textLight}
                     keyboardType="numeric"
                     value={counterAmount}
-                    onChangeText={setCounterAmount}
+                    onChangeText={(v) => { setCounterAmount(v); if (counterError) setCounterError(''); }}
                   />
+                  {counterError && counterOfferId === offer.id && (
+                    <Text style={[styles.errorText, isRTL && styles.textRTL]}>{counterError}</Text>
+                  )}
                   <TouchableOpacity
                     style={[styles.quickBtn, styles.counterSubmitBtn]}
                     onPress={() => handleCounter(offer)}
