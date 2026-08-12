@@ -88,6 +88,22 @@ const translations = {
     activeOnly: 'Active only',
     soldOnly: 'Sold only',
 
+    // ── Categories & Location (Phase 1) ────────────────────────────────
+    selectCategory: 'Select Category',
+    allCategories: 'All Categories',
+    categories: 'Categories',
+    searchCategories: 'Search categories…',
+    equipmentModule: 'Horse Equipment',
+    riderGearModule: 'Rider Gear',
+    servicesModule: 'Services',
+    useCurrentLocation: 'Use my current location',
+    searchLocationPlaceholder: 'Search city or area…',
+    gettingLocation: 'Getting location…',
+    locationError: 'Failed to retrieve location',
+    openStreetMapAttribution: '© OpenStreetMap contributors',
+    radiusKm: (km) => `Within ${km} km`,
+    anyDistance: 'Any Distance',
+
     // ── Horse Card ────────────────────────────────────────────────────
     yrs: 'yrs',
     hh: 'hh',
@@ -569,6 +585,22 @@ const translations = {
     allStatus: 'الكل',
     activeOnly: 'النشط فقط',
     soldOnly: 'المباع فقط',
+
+    // ── Categories & Location (Phase 1) ────────────────────────────────
+    selectCategory: 'اختر التصنيف',
+    allCategories: 'جميع التصنيفات',
+    categories: 'التصنيفات',
+    searchCategories: 'بحث في التصنيفات…',
+    equipmentModule: 'مستلزمات الخيل',
+    riderGearModule: 'مستلزمات الفارس',
+    servicesModule: 'الخدمات',
+    useCurrentLocation: 'استخدام موقعي الحالي',
+    searchLocationPlaceholder: 'ابحث عن المدينة أو المنطقة…',
+    gettingLocation: 'جاري تحديد الموقع…',
+    locationError: 'تعذر تحديد الموقع الحالي',
+    openStreetMapAttribution: '© مساهمو OpenStreetMap',
+    radiusKm: (km) => `في حدود ${km} كم`,
+    anyDistance: 'أي مسافة',
 
     // ── Horse Card ────────────────────────────────────────────────────
     yrs: 'سنة',

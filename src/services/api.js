@@ -551,3 +551,87 @@ export const markOfferHorseSold = (offerId, config = {}) =>
 export const getActionRequiredOffersCount = () =>
   api.get('/api/v1/offers/action-required-count');
 
+// ── Equipment API ─────────────────────────────────────────────────────────────
+export const getEquipmentList = (params = {}) =>
+  api.get('/api/v1/equipment', { params });
+
+export const getEquipmentDetail = (id) =>
+  api.get(`/api/v1/equipment/${id}`);
+
+export const createEquipment = (data) =>
+  api.post('/api/v1/equipment', data);
+
+export const updateEquipment = (id, data) =>
+  api.put(`/api/v1/equipment/${id}`, data);
+
+export const deleteEquipment = (id) =>
+  api.delete(`/api/v1/equipment/${id}`);
+
+export const adminGetPendingEquipment = (skip = 0, limit = 20) =>
+  api.get('/api/v1/admin/equipment/pending', { params: { skip, limit } });
+
+export const adminApproveEquipment = (id) =>
+  api.post(`/api/v1/admin/equipment/${id}/approve`);
+
+export const adminRejectEquipment = (id, reason) =>
+  api.post(`/api/v1/admin/equipment/${id}/reject`, { reason });
+
+// ── Rider Gear API ────────────────────────────────────────────────────────────
+export const getRiderGearList = (params = {}) =>
+  api.get('/api/v1/rider-gear', { params });
+
+export const getRiderGearDetail = (id) =>
+  api.get(`/api/v1/rider-gear/${id}`);
+
+export const createRiderGear = (data) =>
+  api.post('/api/v1/rider-gear', data);
+
+export const updateRiderGear = (id, data) =>
+  api.put(`/api/v1/rider-gear/${id}`, data);
+
+export const deleteRiderGear = (id) =>
+  api.delete(`/api/v1/rider-gear/${id}`);
+
+export const adminGetPendingRiderGear = (skip = 0, limit = 20) =>
+  api.get('/api/v1/admin/rider-gear/pending', { params: { skip, limit } });
+
+export const adminApproveRiderGear = (id) =>
+  api.post(`/api/v1/admin/rider-gear/${id}/approve`);
+
+export const adminRejectRiderGear = (id, reason) =>
+  api.post(`/api/v1/admin/rider-gear/${id}/reject`, { reason });
+
+// ── Services API ──────────────────────────────────────────────────────────────
+export const getServicesList = (params = {}) =>
+  api.get('/api/v1/services', { params });
+
+export const getServiceDetail = (id) =>
+  api.get(`/api/v1/services/${id}`);
+
+export const createService = (data) =>
+  api.post('/api/v1/services', data);
+
+export const updateService = (id, data) =>
+  api.put(`/api/v1/services/${id}`, data);
+
+export const deleteService = (id) =>
+  api.delete(`/api/v1/services/${id}`);
+
+export const sendServiceInquiry = (serviceId, data) =>
+  api.post(`/api/v1/services/${serviceId}/inquiries`, data);
+
+export const getServiceInquiries = (serviceId) =>
+  api.get(`/api/v1/services/${serviceId}/inquiries`);
+
+export const adminGetPendingServices = (skip = 0, limit = 20) =>
+  api.get('/api/v1/admin/services/pending', { params: { skip, limit } });
+
+export const adminApproveService = (id) =>
+  api.post(`/api/v1/admin/services/${id}/approve`);
+
+export const adminRejectService = (id, reason) =>
+  api.post(`/api/v1/admin/services/${id}/reject`, { reason });
+
+
+
+
