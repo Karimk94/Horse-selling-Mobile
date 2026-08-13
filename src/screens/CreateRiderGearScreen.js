@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { createRiderGear } from '../services/api';
 import { searchLocations } from '../services/locationService';
 import CategoryPicker from '../components/CategoryPicker';
-import translations from '../i18n/translations';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const STANDARD_RIDER_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '34', '36', '38', '40', '42', '44'];
 
@@ -39,9 +39,8 @@ export default function CreateRiderGearScreen({ navigation, route }) {
 
   const [submitting, setSubmitting] = useState(false);
 
-  const currentLanguage = route?.params?.language || 'ar';
+  const { language: currentLanguage, t, isRTL } = useLanguage();
   const isArabic = currentLanguage === 'ar';
-  const t = (key) => translations[currentLanguage]?.[key] || translations.en?.[key] || key;
 
   const toggleSize = (size) => {
     if (selectedSizes.includes(size)) {

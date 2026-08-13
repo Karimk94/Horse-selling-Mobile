@@ -11,6 +11,9 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +28,7 @@ import {
   adminApproveService,
   adminRejectService,
 } from '../services/api';
-import translations from '../i18n/translations';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function AdminModerationDashboardScreen({ navigation, route }) {
   const [activeTab, setActiveTab] = useState('equipment'); // equipment, rider_gear, services
@@ -39,9 +42,8 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
   const [rejectReason, setRejectReason] = useState('');
   const [submittingAction, setSubmittingAction] = useState(false);
 
-  const currentLanguage = route?.params?.language || 'ar';
+  const { language: currentLanguage, t, isRTL } = useLanguage();
   const isArabic = currentLanguage === 'ar';
-  const t = (key) => translations[currentLanguage]?.[key] || translations.en?.[key] || key;
 
   const fetchPendingItems = useCallback(async () => {
     setLoading(true);
@@ -269,45 +271,55 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
 
       {/* Rejection Modal */}
       <Modal visible={showRejectModal} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>{isArabic ? 'رفض الإعلان' : 'Reject Listing'}</Text>
-            <Text style={styles.modalSubTitle}>
-              {rejectingItem?.title}
-            </Text>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            contentContainerStyle={styles.modalOverlay}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+          >
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>{isArabic ? 'رفض الإعلان' : 'Reject Listing'}</Text>
+              <Text style={styles.modalSubTitle}>
+                {rejectingItem?.title}
+              </Text>
 
-            <Text style={styles.modalLabel}>{isArabic ? 'سبب الرفض *' : 'Rejection Reason *'}</Text>
-            <TextInput
-              style={[styles.modalInput, { textAlign: isArabic ? 'right' : 'left' }]}
-              placeholder={isArabic ? 'مثال: معلومات ناقصة أو صور غير واضحة...' : 'e.g. Incomplete description or invalid images...'}
-              multiline
-              numberOfLines={3}
-              value={rejectReason}
-              onChangeText={setRejectReason}
-            />
+              <Text style={styles.modalLabel}>{isArabic ? 'سبب الرفض *' : 'Rejection Reason *'}</Text>
+              <TextInput
+                style={[styles.modalInput, { textAlign: isArabic ? 'right' : 'left' }]}
+                placeholder={isArabic ? 'مثال: معلومات ناقصة أو صور غير واضحة...' : 'e.g. Incomplete description or invalid images...'}
+                multiline
+                numberOfLines={3}
+                value={rejectReason}
+                onChangeText={setRejectReason}
+                placeholderTextColor="#94a3b8"
+              />
 
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalCancelBtn]}
-                onPress={() => setShowRejectModal(false)}
-              >
-                <Text style={styles.modalCancelText}>{t('cancel')}</Text>
-              </TouchableOpacity>
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalCancelBtn]}
+                  onPress={() => setShowRejectModal(false)}
+                >
+                  <Text style={styles.modalCancelText}>{t('cancel')}</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalRejectBtn]}
-                disabled={submittingAction}
-                onPress={handleConfirmReject}
-              >
-                {submittingAction ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.modalRejectText}>{isArabic ? 'تأكيد الرفض' : 'Confirm Rejection'}</Text>
-                )}
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalRejectBtn]}
+                  disabled={submittingAction}
+                  onPress={handleConfirmReject}
+                >
+                  {submittingAction ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <Text style={styles.modalRejectText}>{isArabic ? 'تأكيد الرفض' : 'Confirm Rejection'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -489,7 +501,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   modalOverlay: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     padding: 20,

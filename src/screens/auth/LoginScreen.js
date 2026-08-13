@@ -27,6 +27,7 @@ export default function LoginScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [loginError, setLoginError] = useState('');
   const toast = useToast();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -69,14 +70,16 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     if (!validate()) return;
+    setLoginError('');
     setLoading(true);
     try {
       await signIn(email.trim(), password);
       closeAuthModal();
     } catch (err) {
       const msg =
-        err.response?.data?.detail || 'Login failed. Please try again.';
-      toast.show(msg, { type: 'error' });
+        err.response?.data?.detail || t('loginFailed') || 'Login failed. Please try again.';
+      setLoginError(msg);
+      try { toast.show(msg, { type: 'error' }); } catch {}
     } finally {
       setLoading(false);
     }
@@ -109,13 +112,11 @@ export default function LoginScreen({ navigation }) {
           {/* Logo Area */}
           <View style={styles.logoArea}>
             <View style={[styles.logoRow, isRTL && styles.rowRTL]}>
-              <View style={styles.logoCircle}>
-                <Image
-                  source={require('../../../assets/icon.png')}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
-              </View>
+              <Image
+                source={require('../../../assets/logo.jpg')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
               <Text style={styles.appName}>{t('appName')}</Text>
             </View>
             <Text style={[styles.tagline, isRTL && styles.textRTL]}>{t('tagline')}</Text>
@@ -140,7 +141,7 @@ export default function LoginScreen({ navigation }) {
                   placeholder={t('emailPlaceholder')}
                   placeholderTextColor={COLORS.textLight}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(v) => { setEmail(v); setLoginError(''); }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -171,7 +172,7 @@ export default function LoginScreen({ navigation }) {
                   placeholder={t('passwordPlaceholder')}
                   placeholderTextColor={COLORS.textLight}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(v) => { setPassword(v); setLoginError(''); }}
                   secureTextEntry={!showPassword}
                   textAlign={isRTL ? 'right' : 'left'}
                 />
@@ -189,6 +190,13 @@ export default function LoginScreen({ navigation }) {
                 <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors.password}</Text>
               )}
             </View>
+
+            {loginError ? (
+              <View style={styles.loginErrorBanner}>
+                <Ionicons name="alert-circle" size={18} color={COLORS.error} />
+                <Text style={[styles.loginErrorText, isRTL && styles.textRTL]}>{loginError}</Text>
+              </View>
+            ) : null}
 
             <TouchableOpacity
               style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
@@ -255,17 +263,10 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     marginBottom: SPACING.xs,
   },
-  logoCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.primaryLight + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   logoImage: {
-    width: 32,
-    height: 32,
+    width: 56,
+    height: 38,
+    borderRadius: 6,
   },
   appName: {
     ...FONTS.h1,
@@ -344,6 +345,23 @@ const styles = StyleSheet.create({
   loginBtnText: {
     ...FONTS.button,
     color: COLORS.white,
+  },
+  loginErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.error + '12',
+    borderWidth: 1,
+    borderColor: COLORS.error + '30',
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  loginErrorText: {
+    ...FONTS.bodySmall,
+    color: COLORS.error,
+    flex: 1,
   },
   bottomLink: {
     flexDirection: 'row',

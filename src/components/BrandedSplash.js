@@ -7,7 +7,7 @@ export default function BrandedSplash() {
     <View style={styles.container}>
       <View style={styles.card}>
         <Image
-          source={require('../../assets/icon.png')}
+          source={require('../../assets/logo.jpg')}
           style={styles.logoImage}
           resizeMode="contain"
         />
@@ -28,34 +28,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.xl,
     minWidth: 280,
     ...SHADOWS.card,
   },
-  logoCircle: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: COLORS.primaryLight + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.md,
-  },
   logoImage: {
-    width: 60,
-    height: 60,
-  },
-  brandEn: {
-    ...FONTS.h1,
-    color: COLORS.primary,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  brandAr: {
-    marginTop: SPACING.xs,
-    fontSize: 24,
-    color: COLORS.primary,
-    fontWeight: '700',
+    width: 200,
+    height: 134,
   },
 });
+

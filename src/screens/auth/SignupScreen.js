@@ -42,6 +42,7 @@ export default function SignupScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [signupError, setSignupError] = useState('');
   const toast = useToast();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -92,14 +93,17 @@ export default function SignupScreen({ navigation }) {
 
   const handleSignup = async () => {
     if (!validate()) return;
+    setSignupError('');
     setLoading(true);
     try {
       const { confirmPassword, ...data } = form;
       await signUp({ ...data, language });
-      toast.show(t('accountCreatedMsg'), { type: 'success' });
+      try { toast.show(t('accountCreatedMsg'), { type: 'success' }); } catch {}
       closeAuthModal();
     } catch (err) {
-      toast.show(extractApiErrorMessage(err, t('signupFailed')), { type: 'error' });
+      const msg = extractApiErrorMessage(err, t('signupFailed'));
+      setSignupError(msg);
+      try { toast.show(msg, { type: 'error' }); } catch {}
     } finally {
       setLoading(false);
     }
@@ -118,7 +122,7 @@ export default function SignupScreen({ navigation }) {
           placeholder={placeholderText}
           placeholderTextColor={COLORS.textLight}
           value={form[key]}
-          onChangeText={(v) => updateForm(key, v)}
+          onChangeText={(v) => { updateForm(key, v); setSignupError(''); }}
           autoCapitalize={options.autoCapitalize || 'none'}
           keyboardType={options.keyboardType || 'default'}
           secureTextEntry={options.secure && !showPassword}
@@ -172,13 +176,11 @@ export default function SignupScreen({ navigation }) {
               </TouchableOpacity>
             </View>
             <View style={[styles.logoRow, isRTL && styles.rowRTL]}>
-              <View style={styles.logoCircle}>
-                <Image
-                  source={require('../../../assets/icon.png')}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
-              </View>
+              <Image
+                source={require('../../../assets/logo.jpg')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
               <Text style={styles.appName}>{t('appName')}</Text>
             </View>
             <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('createAccount')}</Text>
@@ -259,6 +261,13 @@ export default function SignupScreen({ navigation }) {
               { secure: true }
             )}
 
+            {signupError ? (
+              <View style={styles.signupErrorBanner}>
+                <Ionicons name="alert-circle" size={18} color={COLORS.error} />
+                <Text style={[styles.signupErrorText, isRTL && styles.textRTL]}>{signupError}</Text>
+              </View>
+            ) : null}
+
             <TouchableOpacity
               style={[styles.signupBtn, loading && styles.signupBtnDisabled]}
               onPress={handleSignup}
@@ -335,17 +344,10 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     marginBottom: SPACING.sm,
   },
-  logoCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.primaryLight + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   logoImage: {
-    width: 24,
-    height: 24,
+    width: 48,
+    height: 32,
+    borderRadius: 6,
   },
   appName: {
     ...FONTS.h2,
@@ -459,6 +461,23 @@ const styles = StyleSheet.create({
   signupBtnText: {
     ...FONTS.button,
     color: COLORS.white,
+  },
+  signupErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.error + '12',
+    borderWidth: 1,
+    borderColor: COLORS.error + '30',
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  signupErrorText: {
+    ...FONTS.bodySmall,
+    color: COLORS.error,
+    flex: 1,
   },
   bottomLink: {
     flexDirection: 'row',

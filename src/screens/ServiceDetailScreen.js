@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getServiceDetail, sendServiceInquiry } from '../services/api';
-import translations from '../i18n/translations';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const { width } = Dimensions.get('window');
 
@@ -33,9 +33,8 @@ export default function ServiceDetailScreen({ route, navigation }) {
   const [inquiryMessage, setInquiryMessage] = useState('');
   const [submittingInquiry, setSubmittingInquiry] = useState(false);
 
-  const currentLanguage = route?.params?.language || 'ar';
+  const { language: currentLanguage, t, isRTL } = useLanguage();
   const isArabic = currentLanguage === 'ar';
-  const t = (key) => translations[currentLanguage]?.[key] || translations.en?.[key] || key;
 
   useEffect(() => {
     async function loadDetail() {

@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getEquipmentDetail } from '../services/api';
-import translations from '../i18n/translations';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const { width } = Dimensions.get('window');
 
@@ -24,9 +24,8 @@ export default function EquipmentDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  const currentLanguage = route?.params?.language || 'ar';
+  const { language: currentLanguage, t, isRTL } = useLanguage();
   const isArabic = currentLanguage === 'ar';
-  const t = (key) => translations[currentLanguage]?.[key] || translations.en?.[key] || key;
 
   useEffect(() => {
     async function loadDetail() {

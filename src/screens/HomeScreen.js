@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   FlatList,
   TextInput,
@@ -358,7 +359,7 @@ export default function HomeScreen({ navigation }) {
 
       {/* Results count */}
       <Text style={[styles.resultsCount, isRTL && styles.textRTL]}>
-        {total} {total === 1 ? t('horses').slice(0, -1) : t('horses')}
+        {total} {total === 1 ? (isRTL ? 'خيل' : 'Horse') : t('horses')}
       </Text>
     </View>
   );
@@ -370,13 +371,11 @@ export default function HomeScreen({ navigation }) {
       {/* Header */}
       <View style={[styles.header, isRTL && styles.headerRTL]}>
         <View style={[styles.logoRow, isRTL && styles.rowRTL]}>
-          <View style={styles.logoCircle}>
-            <Image
-              source={require('../../assets/icon.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-          </View>
+          <Image
+            source={require('../../assets/logo.jpg')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <View>
             <Text style={styles.headerTitle}>{t('appName')}</Text>
             <Text style={styles.headerSubtitle}>{t('tagline')}</Text>
@@ -489,17 +488,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
   },
-  logoCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.primaryLight + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   logoImage: {
-    width: 28,
-    height: 28,
+    width: 48,
+    height: 32,
+    borderRadius: 6,
   },
   rowRTL: {
     flexDirection: 'row-reverse',

@@ -33,7 +33,7 @@ export default function ToastProvider({ children }) {
           pointerEvents="box-none"
           style={[
             styles.container,
-            { transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [60, 0] }) }] },
+            { transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-100, 0] }) }] },
           ]}
         >
           <View style={[styles.toast, toast.type === 'success' ? styles.success : toast.type === 'error' ? styles.error : styles.info]}>
@@ -50,8 +50,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 24,
+    top: 60,
     alignItems: 'center',
+    zIndex: 9999,
+    elevation: 9999,
   },
   toast: {
     paddingHorizontal: SPACING.lg,

@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { createEquipment } from '../services/api';
 import { searchLocations } from '../services/locationService';
 import CategoryPicker from '../components/CategoryPicker';
-import translations from '../i18n/translations';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const STANDARD_SIZES = ['Pony', 'Cob', 'Full', 'Extra Full', 'S', 'M', 'L', 'XL'];
 
@@ -38,9 +38,8 @@ export default function CreateEquipmentScreen({ navigation, route }) {
 
   const [submitting, setSubmitting] = useState(false);
 
-  const currentLanguage = route?.params?.language || 'ar';
+  const { language: currentLanguage, t, isRTL } = useLanguage();
   const isArabic = currentLanguage === 'ar';
-  const t = (key) => translations[currentLanguage]?.[key] || translations.en?.[key] || key;
 
   const toggleSize = (size) => {
     if (selectedSizes.includes(size)) {

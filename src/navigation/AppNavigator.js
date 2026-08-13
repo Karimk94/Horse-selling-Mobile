@@ -25,6 +25,19 @@ import AdminOfferAuditScreen from '../screens/AdminOfferAuditScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
 
+// Marketplace Expansion Screens
+import MarketplaceHomeScreen from '../screens/MarketplaceHomeScreen';
+import EquipmentListScreen from '../screens/EquipmentListScreen';
+import EquipmentDetailScreen from '../screens/EquipmentDetailScreen';
+import CreateEquipmentScreen from '../screens/CreateEquipmentScreen';
+import RiderGearListScreen from '../screens/RiderGearListScreen';
+import RiderGearDetailScreen from '../screens/RiderGearDetailScreen';
+import CreateRiderGearScreen from '../screens/CreateRiderGearScreen';
+import ServiceListScreen from '../screens/ServiceListScreen';
+import ServiceDetailScreen from '../screens/ServiceDetailScreen';
+import CreateServiceScreen from '../screens/CreateServiceScreen';
+import AdminModerationDashboardScreen from '../screens/AdminModerationDashboardScreen';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -44,12 +57,24 @@ function AuthStack() {
 function BrowseStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MarketplaceHomeScreen" component={MarketplaceHomeScreen} />
       <Stack.Screen name="HomeMain" component={HomeScreen} />
       <Stack.Screen
         name="HorseDetail"
         component={HorseDetailScreen}
         options={{ animation: 'slide_from_right' }}
       />
+      <Stack.Screen name="HorseListScreen" component={HomeScreen} />
+      <Stack.Screen name="EquipmentListScreen" component={EquipmentListScreen} />
+      <Stack.Screen name="EquipmentDetailScreen" component={EquipmentDetailScreen} />
+      <Stack.Screen name="CreateEquipmentScreen" component={CreateEquipmentScreen} />
+      <Stack.Screen name="RiderGearListScreen" component={RiderGearListScreen} />
+      <Stack.Screen name="RiderGearDetailScreen" component={RiderGearDetailScreen} />
+      <Stack.Screen name="CreateRiderGearScreen" component={CreateRiderGearScreen} />
+      <Stack.Screen name="ServiceListScreen" component={ServiceListScreen} />
+      <Stack.Screen name="ServiceDetailScreen" component={ServiceDetailScreen} />
+      <Stack.Screen name="CreateServiceScreen" component={CreateServiceScreen} />
+      <Stack.Screen name="AdminModerationDashboardScreen" component={AdminModerationDashboardScreen} />
     </Stack.Navigator>
   );
 }
@@ -94,6 +119,7 @@ function AdminStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="AdminMain" component={AdminPanelScreen} />
+      <Stack.Screen name="AdminModerationDashboardScreen" component={AdminModerationDashboardScreen} />
       <Stack.Screen name="AdminPushLogs" component={AdminPushLogsScreen} />
       <Stack.Screen name="AdminOfferAudit" component={AdminOfferAuditScreen} />
       <Stack.Screen name="AdminEditUser" component={AdminEditUserScreen} />
@@ -176,7 +202,7 @@ export default function AppNavigator() {
     return (
       <View style={styles.loading}>
         <Image
-          source={require('../../assets/icon.png')}
+          source={require('../../assets/logo.jpg')}
           style={styles.loadingLogo}
           resizeMode="contain"
         />
@@ -212,5 +238,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loadingLogo: {
+    width: 180,
+    height: 120,
   },
 });

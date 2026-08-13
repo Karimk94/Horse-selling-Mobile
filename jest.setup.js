@@ -16,6 +16,18 @@ jest.mock(
 	{ virtual: true }
 );
 
+jest.mock(
+	'expo-notifications',
+	() => ({
+		setNotificationHandler: jest.fn(),
+		getPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+		requestPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+		getLastNotificationResponseAsync: jest.fn().mockResolvedValue(null),
+		addNotificationResponseReceivedListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
+	}),
+	{ virtual: true }
+);
+
 jest.mock('react-native-safe-area-context', () => {
 	const React = require('react');
 	const { View } = require('react-native');
@@ -45,4 +57,14 @@ jest.mock(
 	}),
 	{ virtual: true }
 );
-
+
+jest.mock('./src/contexts/LanguageContext', () => ({
+	useLanguage: () => ({
+		language: 'en',
+		isRTL: false,
+		setLanguage: jest.fn(),
+		toggleLanguage: jest.fn(),
+		t: (key) => key,
+	}),
+	LanguageProvider: ({ children }) => children,
+}));

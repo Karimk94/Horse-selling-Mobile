@@ -14,19 +14,23 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getEquipmentList, getRiderGearList, getServicesList } from '../services/api';
-import translations from '../i18n/translations';
+import { useLanguage } from '../contexts/LanguageContext';
+import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 
 const MODULES = [
-  { id: 'horses', title_ar: 'بيع الخيول', title_en: 'Horses', icon: 'paw-outline', screen: 'HorseListScreen' },
+  { id: 'horses', title_ar: 'بيع الخيول', title_en: 'Horses', icon: 'paw-outline', screen: 'HomeMain' },
   { id: 'equipment', title_ar: 'مستلزمات الخيل', title_en: 'Equipment', icon: 'shield-outline', screen: 'EquipmentListScreen' },
   { id: 'rider_gear', title_ar: 'مستلزمات الفارس', title_en: 'Rider Gear', icon: 'shirt-outline', screen: 'RiderGearListScreen' },
   { id: 'services', title_ar: 'الخدمات والإيواء', title_en: 'Services', icon: 'construct-outline', screen: 'ServiceListScreen' },
 ];
 
-export default function MarketplaceHomeScreen({ navigation, route }) {
+export default function MarketplaceHomeScreen({ navigation }) {
+  const { language, t, isRTL } = useLanguage();
+  const isArabic = language === 'ar';
+
   const [activeModule, setActiveModule] = useState('horses');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Featured Items State
   const [featuredEquipment, setFeaturedEquipment] = useState([]);
   const [featuredRiderGear, setFeaturedRiderGear] = useState([]);
@@ -35,10 +39,6 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
 
   // Listing creation modal
   const [showCreateModal, setShowCreateModal] = useState(false);
-
-  const currentLanguage = route?.params?.language || 'ar';
-  const isArabic = currentLanguage === 'ar';
-  const t = (key) => translations[currentLanguage]?.[key] || translations.en?.[key] || key;
 
   useEffect(() => {
     async function loadHomeData() {
@@ -71,7 +71,7 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
     } else if (activeModule === 'services') {
       navigation.navigate('ServiceListScreen', { searchQuery: searchQuery.trim() });
     } else {
-      navigation.navigate('HorseListScreen', { searchQuery: searchQuery.trim() });
+      navigation.navigate('HomeMain', { searchQuery: searchQuery.trim() });
     }
   };
 
@@ -98,10 +98,10 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
       >
         <Image source={{ uri: mainImage }} style={styles.hCardImage} resizeMode="cover" />
         <View style={styles.hCardBody}>
-          <Text style={styles.hCardTitle} numberOfLines={1}>
+          <Text style={[styles.hCardTitle, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
             {item.title}
           </Text>
-          <Text style={styles.hCardPrice}>
+          <Text style={[styles.hCardPrice, { textAlign: isRTL ? 'right' : 'left' }]}>
             {item.price ? `${item.price.toLocaleString()} AED` : 'POA'}
           </Text>
         </View>
@@ -113,13 +113,13 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header Bar */}
-        <View style={styles.header}>
+        <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View>
-            <Text style={styles.brandSubtitle}>
+            <Text style={[styles.brandSubtitle, { textAlign: isRTL ? 'right' : 'left' }]}>
               {isArabic ? 'سوق الخيل والمستلزمات الأول' : 'The Premier Equestrian Marketplace'}
             </Text>
-            <Text style={styles.brandTitle}>
-              {isArabic ? 'الخيل والخدمات' : 'Equestrian Hub'}
+            <Text style={[styles.brandTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
+              {isArabic ? 'الخيل والخدمات' : 'SteedMarket Hub'}
             </Text>
           </View>
 
@@ -127,24 +127,24 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
             style={styles.adminBadge}
             onPress={() => navigation.navigate('AdminModerationDashboardScreen')}
           >
-            <Ionicons name="shield-checkmark" size={18} color="#2563eb" />
+            <Ionicons name="shield-checkmark" size={18} color={COLORS.primary} />
             <Text style={styles.adminBadgeText}>{isArabic ? 'الإدارة' : 'Admin'}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Global Search Bar */}
-        <View style={styles.searchBarContainer}>
-          <Ionicons name="search-outline" size={20} color="#64748b" />
+        <View style={[styles.searchBarContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <Ionicons name="search-outline" size={20} color={COLORS.textSecondary} />
           <TextInput
-            style={[styles.searchInput, { textAlign: isArabic ? 'right' : 'left' }]}
+            style={[styles.searchInput, { textAlign: isRTL ? 'right' : 'left' }]}
             placeholder={isArabic ? 'ابحث عن خيل، معدات، ملابس، أو خدمات...' : 'Search horses, equipment, gear, services...'}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={handleGlobalSearch}
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={COLORS.textLight}
           />
           <TouchableOpacity style={styles.searchSubmitBtn} onPress={handleGlobalSearch}>
-            <Ionicons name="arrow-forward" size={18} color="#ffffff" />
+            <Ionicons name={isRTL ? 'arrow-back' : 'arrow-forward'} size={18} color={COLORS.white} />
           </TouchableOpacity>
         </View>
 
@@ -163,7 +163,7 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
                 }}
               >
                 <View style={[styles.moduleIconContainer, isSelected && styles.activeModuleIcon]}>
-                  <Ionicons name={m.icon} size={24} color={isSelected ? '#ffffff' : '#2563eb'} />
+                  <Ionicons name={m.icon} size={24} color={isSelected ? COLORS.white : COLORS.primary} />
                 </View>
                 <Text style={[styles.moduleTitle, isSelected && styles.activeModuleTitle]}>
                   {isArabic ? m.title_ar : m.title_en}
@@ -176,12 +176,12 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
         {/* Featured Sections */}
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2563eb" />
+            <ActivityIndicator size="large" color={COLORS.primary} />
           </View>
         ) : (
           <>
             {/* Featured Horse Equipment */}
-            <View style={styles.sectionHeader}>
+            <View style={[styles.sectionHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Text style={styles.sectionTitle}>{isArabic ? 'معدات ومستلزمات الخيل' : 'Horse Equipment'}</Text>
               <TouchableOpacity onPress={() => navigation.navigate('EquipmentListScreen')}>
                 <Text style={styles.seeAllText}>{isArabic ? 'عرض الكل' : 'See All'}</Text>
@@ -189,6 +189,7 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
             </View>
             <FlatList
               horizontal
+              inverted={isRTL}
               showsHorizontalScrollIndicator={false}
               data={featuredEquipment}
               keyExtractor={(item) => item.id}
@@ -197,7 +198,7 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
             />
 
             {/* Featured Rider Gear */}
-            <View style={styles.sectionHeader}>
+            <View style={[styles.sectionHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Text style={styles.sectionTitle}>{isArabic ? 'مستلزمات وملابس الفارس' : 'Rider Apparel & Gear'}</Text>
               <TouchableOpacity onPress={() => navigation.navigate('RiderGearListScreen')}>
                 <Text style={styles.seeAllText}>{isArabic ? 'عرض الكل' : 'See All'}</Text>
@@ -205,6 +206,7 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
             </View>
             <FlatList
               horizontal
+              inverted={isRTL}
               showsHorizontalScrollIndicator={false}
               data={featuredRiderGear}
               keyExtractor={(item) => item.id}
@@ -213,7 +215,7 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
             />
 
             {/* Featured Services */}
-            <View style={styles.sectionHeader}>
+            <View style={[styles.sectionHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Text style={styles.sectionTitle}>{isArabic ? 'الخدمات والإيواء والتدريب' : 'Services & Boarding'}</Text>
               <TouchableOpacity onPress={() => navigation.navigate('ServiceListScreen')}>
                 <Text style={styles.seeAllText}>{isArabic ? 'عرض الكل' : 'See All'}</Text>
@@ -221,6 +223,7 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
             </View>
             <FlatList
               horizontal
+              inverted={isRTL}
               showsHorizontalScrollIndicator={false}
               data={featuredServices}
               keyExtractor={(item) => item.id}
@@ -237,7 +240,7 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
         activeOpacity={0.85}
         onPress={() => setShowCreateModal(true)}
       >
-        <Ionicons name="add" size={28} color="#ffffff" />
+        <Ionicons name="add" size={28} color={COLORS.white} />
       </TouchableOpacity>
 
       {/* Create Listing Type Selection Modal */}
@@ -253,39 +256,39 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
             </Text>
 
             <TouchableOpacity
-              style={styles.modalOption}
+              style={[styles.modalOption, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
               onPress={() => {
                 setShowCreateModal(false);
                 navigation.navigate('CreateEquipmentScreen');
               }}
             >
-              <Ionicons name="shield-outline" size={22} color="#2563eb" />
+              <Ionicons name="shield-outline" size={22} color={COLORS.primary} />
               <Text style={styles.modalOptionText}>
                 {isArabic ? 'إضافة مستلزمات خيل' : 'Add Horse Equipment'}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.modalOption}
+              style={[styles.modalOption, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
               onPress={() => {
                 setShowCreateModal(false);
                 navigation.navigate('CreateRiderGearScreen');
               }}
             >
-              <Ionicons name="shirt-outline" size={22} color="#2563eb" />
+              <Ionicons name="shirt-outline" size={22} color={COLORS.primary} />
               <Text style={styles.modalOptionText}>
                 {isArabic ? 'إضافة مستلزمات فارس' : 'Add Rider Gear'}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.modalOption}
+              style={[styles.modalOption, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
               onPress={() => {
                 setShowCreateModal(false);
                 navigation.navigate('CreateServiceScreen');
               }}
             >
-              <Ionicons name="construct-outline" size={22} color="#2563eb" />
+              <Ionicons name="construct-outline" size={22} color={COLORS.primary} />
               <Text style={styles.modalOptionText}>
                 {isArabic ? 'إضافة خدمة جديدة' : 'Add Equestrian Service'}
               </Text>
@@ -304,67 +307,69 @@ export default function MarketplaceHomeScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     paddingBottom: 80,
   },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
   },
   brandSubtitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748b',
+    color: COLORS.textSecondary,
     textTransform: 'uppercase',
   },
   brandTitle: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#0f172a',
+    color: COLORS.primary,
   },
   adminBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: '#bfdbfe',
-    borderRadius: 20,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.full,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    ...SHADOWS.soft,
   },
   adminBadgeText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#2563eb',
+    color: COLORS.primary,
     marginLeft: 4,
   },
   searchBarContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 14,
-    marginHorizontal: 20,
-    marginVertical: 10,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    marginHorizontal: SPACING.md,
+    marginVertical: SPACING.sm,
     paddingHorizontal: 14,
     paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.soft,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: '#0f172a',
+    color: COLORS.text,
     marginHorizontal: 8,
   },
   searchSubmitBtn: {
-    backgroundColor: '#2563eb',
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    backgroundColor: COLORS.primary,
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -372,78 +377,80 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginVertical: 12,
+    paddingHorizontal: SPACING.md,
+    marginVertical: SPACING.sm,
   },
   moduleCard: {
     width: '48%',
-    backgroundColor: '#f8fafc',
-    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: COLORS.border,
     alignItems: 'center',
+    ...SHADOWS.card,
   },
   activeModuleCard: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#2563eb',
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.primary,
+    borderWidth: 2,
   },
   moduleIconContainer: {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#eff6ff',
+    backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   activeModuleIcon: {
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.primary,
   },
   moduleTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#334155',
+    color: COLORS.text,
   },
   activeModuleTitle: {
-    color: '#2563eb',
+    color: COLORS.primary,
   },
   sectionHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACING.md,
     marginTop: 18,
     marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0f172a',
+    color: COLORS.primaryDark,
   },
   seeAllText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#2563eb',
+    color: COLORS.accentDark,
   },
   hListContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACING.md,
     paddingBottom: 10,
   },
   hCard: {
     width: 160,
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: COLORS.border,
     overflow: 'hidden',
+    ...SHADOWS.card,
   },
   hCardImage: {
     width: '100%',
     height: 110,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: COLORS.skeleton,
   },
   hCardBody: {
     padding: 10,
@@ -451,13 +458,13 @@ const styles = StyleSheet.create({
   hCardTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0f172a',
+    color: COLORS.text,
     marginBottom: 4,
   },
   hCardPrice: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#2563eb',
+    color: COLORS.primary,
   },
   loadingContainer: {
     paddingVertical: 40,
@@ -469,48 +476,47 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
-    shadowColor: '#2563eb',
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    backgroundColor: COLORS.overlay,
     justifyContent: 'center',
     padding: 24,
   },
   modalContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
     padding: 20,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: COLORS.primary,
     textAlign: 'center',
     marginBottom: 16,
   },
   modalOption: {
-    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.md,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: COLORS.border,
   },
   modalOptionText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#334155',
-    marginLeft: 12,
+    color: COLORS.text,
+    marginHorizontal: 12,
   },
   modalCancelBtn: {
     alignItems: 'center',
@@ -520,6 +526,6 @@ const styles = StyleSheet.create({
   modalCancelText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
+    color: COLORS.textSecondary,
   },
 });

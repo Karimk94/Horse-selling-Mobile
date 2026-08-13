@@ -16,7 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { getServicesList } from '../services/api';
 import { getCurrentDeviceLocation } from '../services/locationService';
 import CategoryPicker from '../components/CategoryPicker';
-import translations from '../i18n/translations';
+import { useLanguage } from '../contexts/LanguageContext';
+import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 
 const SERVICE_TYPES = [
   { id: 'all', name_ar: 'الكل', name_en: 'All' },
@@ -29,6 +30,9 @@ const SERVICE_TYPES = [
 ];
 
 export default function ServiceListScreen({ navigation, route }) {
+  const { language, t, isRTL } = useLanguage();
+  const isArabic = language === 'ar';
+
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -37,19 +41,12 @@ export default function ServiceListScreen({ navigation, route }) {
   const [skip, setSkip] = useState(0);
 
   // Filters
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(route?.params?.searchQuery || '');
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [selectedType, setSelectedType] = useState('all');
   const [userLocation, setUserLocation] = useState(null);
   const [selectedRadius, setSelectedRadius] = useState(null);
-
-  const currentLanguage = route?.params?.language || 'ar';
-  const isArabic = currentLanguage === 'ar';
-  const t = (key, param) => {
-    const val = translations[currentLanguage]?.[key] || translations.en?.[key] || key;
-    return typeof val === 'function' ? val(param) : val;
-  };
 
   const fetchItems = useCallback(
     async (reset = false) => {
@@ -330,14 +327,14 @@ export default function ServiceListScreen({ navigation, route }) {
         activeOpacity={0.85}
         onPress={() => navigation.navigate('CreateServiceScreen')}
       >
-        <Ionicons name="add" size={28} color="#ffffff" />
+        <Ionicons name="add" size={28} color={COLORS.white} />
       </TouchableOpacity>
 
       {/* Category Picker Modal */}
       <CategoryPicker
         visible={showCategoryPicker}
         moduleFilter="services"
-        currentLanguage={currentLanguage}
+        currentLanguage={language}
         selectedSlug={selectedCategory?.slug}
         onClose={() => setShowCategoryPicker(false)}
         onSelectCategory={(cat) => setSelectedCategory(cat)}
@@ -349,33 +346,35 @@ export default function ServiceListScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: COLORS.background,
   },
   headerContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.surface,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: COLORS.border,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.md,
     paddingHorizontal: 12,
     paddingVertical: 9,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#0f172a',
+    color: COLORS.text,
     marginHorizontal: 8,
   },
-  serviceTypesScrollView: {
-    marginBottom: 10,
+  serviceTypesScroll: {
+    marginBottom: 8,
   },
   serviceTypesContent: {
     flexDirection: 'row',
@@ -385,19 +384,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: COLORS.background,
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   activeServiceTypeTab: {
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   serviceTypeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#475569',
+    color: COLORS.textSecondary,
   },
   activeServiceTypeText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontWeight: '700',
   },
   filterChipsRow: {
@@ -407,26 +409,26 @@ const styles = StyleSheet.create({
   chipButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: COLORS.border,
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginRight: 8,
   },
   activeChipButton: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   chipButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2563eb',
+    color: COLORS.primary,
     marginLeft: 6,
   },
   activeChipText: {
-    color: '#ffffff',
+    color: COLORS.white,
   },
   chipClose: {
     marginLeft: 6,
@@ -435,29 +437,25 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
     marginBottom: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    borderColor: COLORS.border,
+    ...SHADOWS.card,
   },
   cardImage: {
     width: '100%',
     height: 180,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: COLORS.skeleton,
   },
   cardBody: {
     padding: 14,
   },
   categoryBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#eff6ff',
+    backgroundColor: COLORS.background,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -466,12 +464,12 @@ const styles = StyleSheet.create({
   categoryBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#2563eb',
+    color: COLORS.primary,
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: COLORS.text,
     marginBottom: 8,
   },
   cardFooter: {
@@ -483,7 +481,7 @@ const styles = StyleSheet.create({
   cardPrice: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#2563eb',
+    color: COLORS.primary,
   },
   locationContainer: {
     flexDirection: 'row',
@@ -492,7 +490,7 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: 12,
-    color: '#64748b',
+    color: COLORS.textSecondary,
     marginLeft: 4,
   },
   centerContainer: {
@@ -512,12 +510,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#334155',
+    color: COLORS.text,
     marginTop: 14,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: COLORS.textLight,
     textAlign: 'center',
     marginTop: 6,
   },
@@ -528,11 +526,11 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
-    shadowColor: '#2563eb',
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
