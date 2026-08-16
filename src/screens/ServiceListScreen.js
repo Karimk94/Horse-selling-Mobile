@@ -185,6 +185,12 @@ export default function ServiceListScreen({ navigation, route }) {
     <SafeAreaView style={styles.container}>
       {/* Search & Header */}
       <View style={styles.headerContainer}>
+        <View style={styles.topBar}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+          <Text style={styles.topBarTitle}>{isArabic ? 'الخدمات' : 'Services'}</Text>
+        </View>
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={20} color="#64748b" />
           <TextInput
@@ -355,6 +361,20 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  backBtn: {
+    marginRight: 10,
+    padding: 2,
+  },
+  topBarTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.text,
   },
   searchBar: {
     flexDirection: 'row',

@@ -9,6 +9,10 @@ jest.mock('../../services/api', () => ({
   getServicesList: jest.fn(),
 }));
 
+jest.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: null }),
+}));
+
 describe('MarketplaceHomeScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();

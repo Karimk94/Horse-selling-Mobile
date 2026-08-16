@@ -202,7 +202,7 @@ export default function AppNavigator() {
     return (
       <View style={styles.loading}>
         <Image
-          source={require('../../assets/logo.jpg')}
+          source={require('../../assets/logo.png')}
           style={styles.loadingLogo}
           resizeMode="contain"
         />
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingLogo: {
-    width: 180,
-    height: 120,
+    width: 200,
+    height: 80,
   },
 });

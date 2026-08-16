@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getEquipmentList, getRiderGearList, getServicesList } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 
 const MODULES = [
@@ -26,7 +27,9 @@ const MODULES = [
 
 export default function MarketplaceHomeScreen({ navigation }) {
   const { language, t, isRTL } = useLanguage();
+  const { user } = useAuth();
   const isArabic = language === 'ar';
+  const isAdmin = user?.role === 'admin';
 
   const [activeModule, setActiveModule] = useState('horses');
   const [searchQuery, setSearchQuery] = useState('');
@@ -123,13 +126,15 @@ export default function MarketplaceHomeScreen({ navigation }) {
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.adminBadge}
-            onPress={() => navigation.navigate('AdminModerationDashboardScreen')}
-          >
-            <Ionicons name="shield-checkmark" size={18} color={COLORS.primary} />
-            <Text style={styles.adminBadgeText}>{isArabic ? 'الإدارة' : 'Admin'}</Text>
-          </TouchableOpacity>
+          {isAdmin && (
+            <TouchableOpacity
+              style={styles.adminBadge}
+              onPress={() => navigation.navigate('AdminModerationDashboardScreen')}
+            >
+              <Ionicons name="shield-checkmark" size={18} color={COLORS.primary} />
+              <Text style={styles.adminBadgeText}>{isArabic ? 'الإدارة' : 'Admin'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Global Search Bar */}

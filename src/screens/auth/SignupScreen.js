@@ -177,7 +177,7 @@ export default function SignupScreen({ navigation }) {
             </View>
             <View style={[styles.logoRow, isRTL && styles.rowRTL]}>
               <Image
-                source={require('../../../assets/logo.jpg')}
+                source={require('../../../assets/logo.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
@@ -345,8 +345,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   logoImage: {
-    width: 48,
-    height: 32,
+    width: 120,
+    height: 46,
     borderRadius: 6,
   },
   appName: {

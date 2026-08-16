@@ -698,6 +698,15 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
         ))}
       </View>
 
+      <TouchableOpacity
+        style={[styles.moderationBtn, isRTL && styles.rowRTL]}
+        onPress={() => navigation.navigate('AdminModerationDashboardScreen')}
+      >
+        <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.primary} />
+        <Text style={styles.moderationBtnText}>{t('adminModeration')}</Text>
+        <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+      </TouchableOpacity>
+
       <View style={[styles.tabRow, isRTL && styles.rowRTL]}>
         {[
           { key: 'pending', label: t('adminPendingListings') },
@@ -1153,6 +1162,25 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     paddingHorizontal: SPACING.md,
     marginBottom: SPACING.sm,
+  },
+  moderationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  moderationBtnText: {
+    flex: 1,
+    ...FONTS.body,
+    fontWeight: '700',
+    color: COLORS.text,
   },
   statCard: {
     flex: 1,

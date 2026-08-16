@@ -7,7 +7,7 @@ export default function BrandedSplash() {
     <View style={styles.container}>
       <View style={styles.card}>
         <Image
-          source={require('../../assets/logo.jpg')}
+          source={require('../../assets/logo.png')}
           style={styles.logoImage}
           resizeMode="contain"
         />
@@ -35,8 +35,8 @@ const styles = StyleSheet.create({
     ...SHADOWS.card,
   },
   logoImage: {
-    width: 200,
-    height: 134,
+    width: 260,
+    height: 100,
   },
 });
 

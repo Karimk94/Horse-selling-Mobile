@@ -122,9 +122,14 @@ export default function CreateServiceScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.headerTitle}>
-          {isArabic ? 'إضافة خدمة خيل جديدة' : 'Add Equestrian Service Listing'}
-        </Text>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#0f172a" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {isArabic ? 'إضافة خدمة خيل جديدة' : 'Add Equestrian Service Listing'}
+          </Text>
+        </View>
 
         {/* Title */}
         <View style={styles.inputGroup}>
@@ -306,11 +311,19 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  backBtn: {
+    marginRight: 12,
+    padding: 4,
+  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
     color: '#0f172a',
-    marginBottom: 20,
   },
   inputGroup: {
     marginBottom: 16,
