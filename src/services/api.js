@@ -13,6 +13,7 @@ let unauthorizedHandlerPromise = null;
 const recentIdempotencyKeys = new Map();
 const IDEMPOTENCY_WINDOW_MS = 30000;
 const ADMIN_DASHBOARD_CACHE_MAX_AGE_MS = 45000;
+const CREATE_LISTING_TIMEOUT_MS = 30000;
 let adminDashboardCache = null;
 let adminDashboardInFlight = null;
 const adminRequestControllers = new Map();
@@ -211,7 +212,8 @@ export const getHorses = (params) => api.get('/api/v1/horses', { params });
 
 export const getHorse = (id) => api.get(`/api/v1/horses/${id}`);
 
-export const createHorse = (data) => api.post('/api/v1/horses', data);
+export const createHorse = (data) =>
+  api.post('/api/v1/horses', data, { timeout: CREATE_LISTING_TIMEOUT_MS });
 
 export const updateHorse = (id, data) => api.put(`/api/v1/horses/${id}`, data);
 

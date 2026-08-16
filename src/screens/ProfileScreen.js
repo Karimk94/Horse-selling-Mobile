@@ -27,6 +27,7 @@ export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated, signOut, refreshProfile } = useAuth();
   const { t, isRTL, setLanguage, language } = useLanguage();
+  const isArabic = language === 'ar';
   const toast = useToast();
   const [myListings, setMyListings] = useState([]);
   const [listingsPage, setListingsPage] = useState(0);
@@ -44,37 +45,32 @@ export default function ProfileScreen({ navigation }) {
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [actionableOffers, setActionableOffers] = useState(0);
 
-  const fetchMyListings = useCallback(async (pageNum = 0, append = false) => {
+  const fetchMyListings = useCallback(async () => {
     if (!isAuthenticated || !user?.id) return;
-    const isInitialLoad = pageNum === 0;
-    if (isInitialLoad) {
-      setLoadingListings(true);
-    } else {
-      setLoadingMoreListings(true);
-    }
+    setLoadingListings(true);
     try {
-      const res = await apiService.getHorses({
-        owner_id: user.id,
-        skip: pageNum * listingsLimit,
-        limit: listingsLimit,
-      });
-      const items = res.data.horses || res.data.items || res.data || [];
-      const total = res.data.total ?? items.length;
-      setListingsTotal(total);
-      if (append) {
-        setMyListings((prev) => [...prev, ...items]);
-      } else {
-        setMyListings(items);
-      }
+      const [horsesRes, equipmentRes, riderGearRes, servicesRes] = await Promise.all([
+        apiService.getHorses({ owner_id: user.id, skip: 0, limit: 100 }),
+        apiService.getEquipmentList({ owner_id: user.id, skip: 0, limit: 100 }),
+        apiService.getRiderGearList({ owner_id: user.id, skip: 0, limit: 100 }),
+        apiService.getServicesList({ owner_id: user.id, skip: 0, limit: 100 }),
+      ]);
+
+      const horses = (horsesRes.data.horses || horsesRes.data.items || horsesRes.data || []).map(
+        (h) => ({ ...h, type: 'horse' })
+      );
+      const equipment = (equipmentRes.data?.items || []).map((e) => ({ ...e, type: 'equipment' }));
+      const riderGear = (riderGearRes.data?.items || []).map((r) => ({ ...r, type: 'rider_gear' }));
+      const services = (servicesRes.data?.items || []).map((s) => ({ ...s, type: 'services' }));
+
+      const items = [...horses, ...equipment, ...riderGear, ...services];
+      setMyListings(items);
+      setListingsTotal(items.length);
     } catch {
     } finally {
-      if (isInitialLoad) {
-        setLoadingListings(false);
-      } else {
-        setLoadingMoreListings(false);
-      }
+      setLoadingListings(false);
     }
-  }, [isAuthenticated, user?.id, listingsLimit]);
+  }, [isAuthenticated, user?.id]);
 
   const fetchUnreadAlerts = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -98,8 +94,7 @@ export default function ProfileScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      setListingsPage(0);
-      fetchMyListings(0, false);
+      fetchMyListings();
       fetchUnreadAlerts();
       fetchActionableOffers();
     }, [fetchMyListings, fetchUnreadAlerts, fetchActionableOffers])
@@ -181,6 +176,45 @@ export default function ProfileScreen({ navigation }) {
     } catch (error) {
       setLanguage(language);
       toast.show(extractApiErrorMessage(error, t('languageUpdateFailed')), { type: 'error' });
+    }
+  };
+
+  const getTypeLabel = (type) => {
+    switch (type) {
+      case 'equipment':
+        return isArabic ? 'مستلزمات الخيل' : 'Equipment';
+      case 'rider_gear':
+        return isArabic ? 'مستلزمات الفارس' : 'Rider Gear';
+      case 'services':
+        return isArabic ? 'الخدمات' : 'Services';
+      default:
+        return '';
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'approved':
+        return isArabic ? 'مقبول' : 'Approved';
+      case 'pending_review':
+        return isArabic ? 'قيد المراجعة' : 'Pending';
+      case 'rejected':
+        return isArabic ? 'مرفوض' : 'Rejected';
+      default:
+        return '';
+    }
+  };
+
+  const getDetailTarget = (type, id) => {
+    switch (type) {
+      case 'equipment':
+        return { screen: 'EquipmentDetailScreen', params: { equipmentId: id } };
+      case 'rider_gear':
+        return { screen: 'RiderGearDetailScreen', params: { riderGearId: id } };
+      case 'services':
+        return { screen: 'ServiceDetailScreen', params: { serviceId: id } };
+      default:
+        return null;
     }
   };
 
@@ -517,17 +551,49 @@ export default function ProfileScreen({ navigation }) {
             />
           ) : (
             <>
-              {myListings.map((horse) => (
-                <HorseCard
-                  key={horse.id}
-                  horse={horse}
-                  onPress={() =>
-                    navigation.navigate('HorseDetail', { horse })
-                  }
-                  onFavorite={() => {}}
-                  isFavorited={false}
-                />
-              ))}
+              {myListings.map((item) =>
+                item.type === 'horse' ? (
+                  <HorseCard
+                    key={item.id}
+                    horse={item}
+                    onPress={() => navigation.navigate('HorseDetail', { horse: item })}
+                    onFavorite={() => {}}
+                    isFavorited={false}
+                  />
+                ) : (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.genericListingCard}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      const target = getDetailTarget(item.type, item.id);
+                      if (target) navigation.navigate(target.screen, target.params);
+                    }}
+                  >
+                    <View style={styles.genericCardHeader}>
+                      <View style={styles.genericTypeBadge}>
+                        <Text style={styles.genericTypeText}>{getTypeLabel(item.type)}</Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.genericStatusBadge,
+                          item.status === 'approved' && styles.statusApproved,
+                          item.status === 'pending_review' && styles.statusPending,
+                          item.status === 'rejected' && styles.statusRejected,
+                        ]}
+                      >
+                        <Text style={styles.genericStatusText}>{getStatusLabel(item.status)}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.genericCardTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.genericCardPrice}>
+                      {item.price ? `${item.price.toLocaleString()} AED` : 'POA'}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              )}
               {myListings.length < listingsTotal && (
                 <TouchableOpacity
                   onPress={() => {
@@ -842,6 +908,62 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     paddingHorizontal: SPACING.md,
     marginBottom: SPACING.sm,
+  },
+  genericListingCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.card,
+  },
+  genericCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
+  genericTypeBadge: {
+    backgroundColor: COLORS.primaryLight + '20',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  genericTypeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  genericStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: COLORS.borderLight,
+  },
+  statusApproved: {
+    backgroundColor: '#D1FAE5',
+  },
+  statusPending: {
+    backgroundColor: '#FEF3C7',
+  },
+  statusRejected: {
+    backgroundColor: '#FEE2E2',
+  },
+  genericStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+  },
+  genericCardTitle: {
+    ...FONTS.body,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  genericCardPrice: {
+    ...FONTS.priceSm,
+    color: COLORS.primary,
   },
   authPrompt: {
     flex: 1,

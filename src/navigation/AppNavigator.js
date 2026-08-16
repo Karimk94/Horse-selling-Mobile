@@ -14,6 +14,7 @@ import HomeScreen from '../screens/HomeScreen';
 import HorseDetailScreen from '../screens/HorseDetailScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
 import CreateListingScreen from '../screens/CreateListingScreen';
+import SellHomeScreen from '../screens/SellHomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SavedAlertsScreen from '../screens/SavedAlertsScreen';
 import OffersScreen from '../screens/OffersScreen';
@@ -95,7 +96,11 @@ function FavoritesStack() {
 function SellStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="SellHome" component={SellHomeScreen} />
       <Stack.Screen name="CreateListingMain" component={CreateListingScreen} />
+      <Stack.Screen name="CreateEquipmentScreen" component={CreateEquipmentScreen} />
+      <Stack.Screen name="CreateRiderGearScreen" component={CreateRiderGearScreen} />
+      <Stack.Screen name="CreateServiceScreen" component={CreateServiceScreen} />
     </Stack.Navigator>
   );
 }
@@ -111,6 +116,9 @@ function ProfileStack() {
         component={HorseDetailScreen}
         options={{ animation: 'slide_from_right' }}
       />
+      <Stack.Screen name="EquipmentDetailScreen" component={EquipmentDetailScreen} />
+      <Stack.Screen name="RiderGearDetailScreen" component={RiderGearDetailScreen} />
+      <Stack.Screen name="ServiceDetailScreen" component={ServiceDetailScreen} />
     </Stack.Navigator>
   );
 }
@@ -240,7 +248,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingLogo: {
-    width: 200,
-    height: 80,
+    width: 120,
+    height: 46,
   },
 });
