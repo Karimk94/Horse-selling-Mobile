@@ -3,6 +3,8 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   RefreshControl,
   StatusBar,
   StyleSheet,
@@ -58,6 +60,7 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
   const [purgeConfirmMode, setPurgeConfirmMode] = useState(null);
   const [purgeConfirmText, setPurgeConfirmText] = useState('');
   const refreshAbortControllerRef = useRef(null);
+  const pendingListRef = useRef(null);
   const PURGE_KEYWORD = 'PURGE';
 
   useEffect(() => {
@@ -675,7 +678,10 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       <View style={[styles.header, isRTL && styles.headerRTL]}>
@@ -1132,7 +1138,7 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
           )}
         </>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

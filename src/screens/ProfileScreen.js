@@ -10,6 +10,8 @@ import {
   FlatList,
   StatusBar,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -250,7 +252,10 @@ export default function ProfileScreen({ navigation }) {
   ).toUpperCase() || user?.email?.[0]?.toUpperCase() || '?';
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -617,7 +622,7 @@ export default function ProfileScreen({ navigation }) {
 
         <View style={{ height: SPACING.xxl * 2 }} />
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

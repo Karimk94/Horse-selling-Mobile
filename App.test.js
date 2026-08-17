@@ -18,13 +18,6 @@ jest.mock('./src/contexts/LanguageContext', () => ({
   LanguageProvider: ({ children }) => children,
 }));
 
-jest.mock('./src/components/BrandedSplash', () => {
-  const React = require('react');
-  const { Text } = require('react-native');
-
-  return () => React.createElement(Text, null, 'BrandedSplash');
-});
-
 jest.mock('./src/navigation/AppNavigator', () => {
   const React = require('react');
   const { Text } = require('react-native');
@@ -80,7 +73,7 @@ describe('App notification navigation', () => {
     render(<App />);
 
     await act(async () => {
-      jest.advanceTimersByTime(1400);
+      jest.runAllTimers();
     });
 
     await waitFor(() => {
@@ -99,7 +92,7 @@ describe('App notification navigation', () => {
     render(<App />);
 
     await act(async () => {
-      jest.advanceTimersByTime(1400);
+      jest.runAllTimers();
     });
 
     await act(async () => {

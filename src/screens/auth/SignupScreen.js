@@ -11,7 +11,6 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../../config/theme';
@@ -175,14 +174,7 @@ export default function SignupScreen({ navigation }) {
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={[styles.logoRow, isRTL && styles.rowRTL]}>
-              <Image
-                source={require('../../../assets/logo.png')}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-              <Text style={styles.appName}>{t('appName')}</Text>
-            </View>
+            <Text style={styles.appName}>{t('appName')}</Text>
             <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('createAccount')}</Text>
             <Text style={[styles.headerSubtitle, isRTL && styles.textRTL]}>
               {t('joinTagline')}
@@ -345,9 +337,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   logoImage: {
-    width: 120,
-    height: 46,
-    borderRadius: 6,
+    width: 42,
+    height: 42,
   },
   appName: {
     ...FONTS.h2,

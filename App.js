@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { LanguageProvider } from './src/contexts/LanguageContext';
 import AppNavigator from './src/navigation/AppNavigator';
-import BrandedSplash from './src/components/BrandedSplash';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { navigate } from './src/navigation/navigationService';
 import * as apiService from './src/services/api';
@@ -25,12 +24,6 @@ try {
 }
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 1400);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     const handleNotificationOpen = async (response) => {
@@ -111,17 +104,13 @@ export default function App() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <LanguageProvider>
-          {showSplash ? (
-            <BrandedSplash />
-          ) : (
-            <AuthProvider>
-              <ToastProvider>
-                <React.Suspense fallback={null}>
-                  <AppNavigator />
-                </React.Suspense>
-              </ToastProvider>
-            </AuthProvider>
-          )}
+          <AuthProvider>
+            <ToastProvider>
+              <React.Suspense fallback={null}>
+                <AppNavigator />
+              </React.Suspense>
+            </ToastProvider>
+          </AuthProvider>
         </LanguageProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

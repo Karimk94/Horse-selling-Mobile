@@ -8,6 +8,8 @@ import {
   ScrollView,
   TextInput,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
@@ -118,7 +120,7 @@ export default function FilterModal({ visible, onClose, onApply, initialFilters 
       transparent
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <TouchableOpacity style={styles.overlayTouch} onPress={onClose} />
         <View style={styles.sheet}>
           {/* Handle */}
@@ -324,7 +326,7 @@ export default function FilterModal({ visible, onClose, onApply, initialFilters 
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

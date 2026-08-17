@@ -2,13 +2,12 @@
   "expo": {
     "name": "SteedMarket",
     "slug": "steed-market",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#FAF8F5"
     },
@@ -25,6 +24,7 @@
     "android": {
       "package": "com.steedmarket.app",
       "versionCode": 1,
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Alert,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { COLORS } from '../config/theme';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -186,7 +188,8 @@ const OfferHistorySheet = ({ horseId, isVisible, onClose, userRole = 'buyer', on
 
   return (
     <Modal visible={isVisible} animationType="slide" transparent={false}>
-      <View style={styles.container}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose}>
             <Text style={styles.closeButton}>✕</Text>
@@ -448,7 +451,8 @@ const OfferHistorySheet = ({ horseId, isVisible, onClose, userRole = 'buyer', on
             )}
           </View>
         )}
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

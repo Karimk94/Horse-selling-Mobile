@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Platform, Image } from 'react-native';
+import { View, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -209,11 +209,7 @@ export default function AppNavigator() {
   if (loading) {
     return (
       <View style={styles.loading}>
-        <Image
-          source={require('../../assets/logo.png')}
-          style={styles.loadingLogo}
-          resizeMode="contain"
-        />
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -246,9 +242,5 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  loadingLogo: {
-    width: 120,
-    height: 46,
   },
 });

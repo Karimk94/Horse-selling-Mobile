@@ -370,17 +370,10 @@ export default function HomeScreen({ navigation }) {
 
       {/* Header */}
       <View style={[styles.header, isRTL && styles.headerRTL]}>
-        <View style={[styles.logoRow, isRTL && styles.rowRTL]}>
-          <Image
-            source={require('../../assets/logo.png')}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
-          <View>
+        <View>
             <Text style={styles.headerTitle}>{t('appName')}</Text>
             <Text style={styles.headerSubtitle}>{t('tagline')}</Text>
           </View>
-        </View>
       </View>
 
       {loading && horses.length === 0 ? (
@@ -489,9 +482,8 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   logoImage: {
-    width: 120,
-    height: 46,
-    borderRadius: 6,
+    width: 42,
+    height: 42,
   },
   rowRTL: {
     flexDirection: 'row-reverse',

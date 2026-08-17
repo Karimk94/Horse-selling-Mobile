@@ -276,7 +276,7 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <ScrollView
-            contentContainerStyle={styles.modalOverlay}
+            contentContainerStyle={[styles.modalOverlay, { justifyContent: 'flex-end' }]}
             keyboardShouldPersistTaps="handled"
             bounces={false}
           >

@@ -11,7 +11,6 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../../config/theme';
@@ -111,14 +110,13 @@ export default function LoginScreen({ navigation }) {
 
           {/* Logo Area */}
           <View style={styles.logoArea}>
-            <View style={[styles.logoRow, isRTL && styles.rowRTL]}>
-              <Image
-                source={require('../../../assets/logo.png')}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-              <Text style={styles.appName}>{t('appName')}</Text>
-            </View>
+            <Text
+                style={styles.appName}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {t('appName')}
+              </Text>
             <Text style={[styles.tagline, isRTL && styles.textRTL]}>{t('tagline')}</Text>
           </View>
 
@@ -260,17 +258,27 @@ const styles = StyleSheet.create({
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    justifyContent: 'center',
+    alignSelf: 'stretch',
     marginBottom: SPACING.xs,
   },
+  logoMarkSlot: {
+    width: 54,
+    alignItems: 'flex-start',
+  },
   logoImage: {
-    width: 120,
-    height: 46,
-    borderRadius: 6,
+    width: 42,
+    height: 42,
+  },
+  logoSpacer: {
+    width: 54,
   },
   appName: {
     ...FONTS.h1,
     color: COLORS.primary,
+    letterSpacing: 0,
+    textAlign: 'center',
+    writingDirection: 'ltr',
   },
   tagline: {
     ...FONTS.body,

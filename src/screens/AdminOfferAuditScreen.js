@@ -9,6 +9,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -87,7 +89,10 @@ export default function AdminOfferAuditScreen({ navigation, route }) {
   }, [initialOfferId, loadAudit]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}> 
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       <View style={[styles.header, isRTL && styles.headerRTL]}>
@@ -198,7 +203,7 @@ export default function AdminOfferAuditScreen({ navigation, route }) {
           ))
         )}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
