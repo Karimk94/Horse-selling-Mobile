@@ -10,10 +10,12 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { createService } from '../services/api';
+import * as ImagePicker from 'expo-image-picker';
+import { createService, uploadMedia } from '../services/api';
 import { searchLocations } from '../services/locationService';
 import CategoryPicker from '../components/CategoryPicker';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -53,10 +55,33 @@ export default function CreateServiceScreen({ navigation, route }) {
   const [locationResults, setLocationResults] = useState([]);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
 
+  const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
   const { language: currentLanguage, t, isRTL } = useLanguage();
   const isArabic = currentLanguage === 'ar';
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(isArabic ? 'إذن مطلوب' : 'Permission Required', isArabic ? 'يرجى السماح بالوصول إلى الصور.' : 'Please allow access to your photos.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      quality: 0.8,
+      selectionLimit: 10 - images.length,
+    });
+    if (!result.canceled && result.assets) {
+      const newUris = result.assets.map((a) => a.uri).filter(Boolean);
+      if (newUris.length > 0) setImages((prev) => [...prev, ...newUris]);
+    }
+  };
+
+  const removeImage = (index) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleLocationSearch = async (text) => {
     setLocationText(text);
@@ -89,6 +114,22 @@ export default function CreateServiceScreen({ navigation, route }) {
 
     setSubmitting(true);
     try {
+      // Upload images
+      let imageUrls = [];
+      if (images.length > 0) {
+        imageUrls = (
+          await Promise.all(
+            images.map(async (uri) => {
+              const formData = new FormData();
+              const filename = uri.split('/').pop();
+              formData.append('file', { uri, name: filename, type: 'image/jpeg' });
+              const res = await uploadMedia(formData);
+              return res.data?.file_url || res.data?.url || null;
+            })
+          )
+        ).filter(Boolean);
+      }
+
       const payload = {
         title: title.trim(),
         category_id: selectedCategory?.id || null,
@@ -100,7 +141,7 @@ export default function CreateServiceScreen({ navigation, route }) {
         longitude: longitude,
         availability_calendar: availabilityCalendar.trim() || null,
         description: description.trim() || null,
-        image_urls: ['https://via.placeholder.com/600x400?text=Equestrian+Service'],
+        image_urls: imageUrls.length > 0 ? imageUrls : ['https://via.placeholder.com/600x400?text=Equestrian+Service'],
       };
 
       await createService(payload);
@@ -263,6 +304,29 @@ export default function CreateServiceScreen({ navigation, route }) {
           )}
         </View>
 
+        {/* Photo Upload */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>{isArabic ? 'الصور' : 'Photos'}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageRow}>
+            {images.map((uri, index) => (
+              <View key={index} style={styles.imageThumb}>
+                <Image source={{ uri }} style={styles.thumbImage} />
+                <TouchableOpacity style={styles.removeImageBtn} onPress={() => removeImage(index)}>
+                  <Ionicons name="close" size={14} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+            ))}
+            {images.length < 10 && (
+              <TouchableOpacity style={styles.addImageBtn} onPress={pickImage}>
+                <Ionicons name="camera-outline" size={26} color="#64748b" />
+                <Text style={styles.addImageText}>
+                  {images.length === 0 ? (isArabic ? 'إضافة صور' : 'Add Photos') : `${images.length}/10`}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+
         {/* Description */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>{t('description')}</Text>
@@ -422,6 +486,49 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginLeft: 6,
     flex: 1,
+  },
+  imageRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 4,
+  },
+  imageThumb: {
+    width: 90,
+    height: 90,
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  thumbImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addImageBtn: {
+    width: 90,
+    height: 90,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  addImageText: {
+    fontSize: 10,
+    color: '#64748b',
   },
   submitBtn: {
     backgroundColor: '#2563eb',

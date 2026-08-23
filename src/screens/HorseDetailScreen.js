@@ -439,6 +439,12 @@ export default function HorseDetailScreen({ route, navigation }) {
                 <Text style={[styles.certificateLinkText, isRTL && styles.textRTL]}>{t('viewVetCertificate')}</Text>
               </TouchableOpacity>
             )}
+            {horse.location_text && (
+              <View style={[styles.locationRow, isRTL && styles.rowRTL]}>
+                <Ionicons name="location-outline" size={18} color={COLORS.primary} />
+                <Text style={[styles.locationRowText, isRTL && styles.textRTL]}>{horse.location_text}</Text>
+              </View>
+            )}
           </View>
 
           {horse.status === 'rejected' && !!horse.rejection_reason && (
@@ -882,6 +888,17 @@ const styles = StyleSheet.create({
     ...FONTS.bodySmall,
     color: COLORS.primary,
     fontWeight: '700',
+  },
+  locationRow: {
+    marginTop: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  locationRowText: {
+    ...FONTS.bodySmall,
+    color: COLORS.textSecondary,
+    flex: 1,
   },
   description: {
     ...FONTS.body,

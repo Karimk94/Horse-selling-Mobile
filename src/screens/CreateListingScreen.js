@@ -26,6 +26,7 @@ import * as apiService from '../services/api';
 import { useToast } from '../components/ToastProvider';
 import HORSE_BREEDS from '../data/horseBreeds';
 import { extractApiErrorMessage } from '../utils/apiErrors';
+import { searchLocations } from '../services/locationService';
 
 const GENDERS = ['mare', 'gelding', 'stallion'];
 const AGE_OPTIONS = Array.from({ length: 31 }, (_, i) => i.toString());
@@ -59,6 +60,13 @@ export default function CreateListingScreen({ navigation }) {
   const [heightModalVisible, setHeightModalVisible] = useState(false);
   const [heightInput, setHeightInput] = useState('');
 
+  // Location
+  const [locationText, setLocationText] = useState('');
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
+  const [locationResults, setLocationResults] = useState([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+
   const filteredBreeds = useMemo(() => {
     const q = breedSearchQuery.trim().toLowerCase();
     if (!q) return HORSE_BREEDS;
@@ -91,6 +99,27 @@ export default function CreateListingScreen({ navigation }) {
     } else {
       setErrors((prev) => ({ ...prev, height: `${t('heightLabel')} ${t('mustBeBetween')} ${HEIGHT_MIN} ${t('and')} ${HEIGHT_MAX}` }));
     }
+  };
+
+  const handleLocationSearch = async (text) => {
+    setLocationText(text);
+    setLatitude(null);
+    setLongitude(null);
+    if (text.trim().length < 2) {
+      setLocationResults([]);
+      return;
+    }
+    setIsSearchingLocation(true);
+    const results = await searchLocations(text);
+    setLocationResults(results);
+    setIsSearchingLocation(false);
+  };
+
+  const handleSelectLocation = (loc) => {
+    setLocationText(loc.display_name);
+    setLatitude(loc.lat);
+    setLongitude(loc.lon);
+    setLocationResults([]);
   };
 
   const pickImage = async () => {
@@ -237,6 +266,9 @@ export default function CreateListingScreen({ navigation }) {
         description: form.description.trim(),
         vet_check_available: form.vet_check_available,
         vet_certificate_url: vetCertificateUrl,
+        location_text: locationText.trim() || null,
+        latitude: latitude,
+        longitude: longitude,
         image_urls: imageUrls,
       };
 
@@ -308,8 +340,15 @@ export default function CreateListingScreen({ navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('createListing')}</Text>
-        <Text style={[styles.headerSubtitle, isRTL && styles.textRTL]}>{t('listYourHorse')}</Text>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+          <View style={styles.headerTextWrap}>
+            <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('createListing')}</Text>
+            <Text style={[styles.headerSubtitle, isRTL && styles.textRTL]}>{t('listYourHorse')}</Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView
@@ -457,6 +496,46 @@ export default function CreateListingScreen({ navigation }) {
           {renderInput('discipline', 'disciplineLabel', t('disciplinePlaceholder'), {
             required: false,
           })}
+
+          {/* Location */}
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, isRTL && styles.textRTL]}>
+              {t('locationLabel')}
+            </Text>
+            <View style={styles.locationInputWrapper}>
+              <Ionicons name="location-outline" size={20} color={COLORS.textLight} style={styles.locIcon} />
+              <TextInput
+                style={[
+                  styles.input,
+                  { flex: 1, borderColor: 'transparent' },
+                  isRTL && styles.inputRTL,
+                ]}
+                placeholder={t('searchLocationPlaceholder')}
+                placeholderTextColor={COLORS.textLight}
+                value={locationText}
+                onChangeText={handleLocationSearch}
+                textAlign={isRTL ? 'right' : 'left'}
+              />
+              {isSearchingLocation && <ActivityIndicator size="small" color={COLORS.primary} />}
+            </View>
+            {locationResults.length > 0 && (
+              <View style={styles.autocompleteDropdown}>
+                {locationResults.map((loc, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={styles.autocompleteRow}
+                    onPress={() => handleSelectLocation(loc)}
+                  >
+                    <Ionicons name="pin-outline" size={16} color={COLORS.primary} />
+                    <Text style={[styles.autocompleteText, isRTL && styles.textRTL]} numberOfLines={1}>
+                      {loc.display_name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
           {renderInput(
             'description',
             'descriptionLabel',
@@ -699,6 +778,17 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 2,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backBtn: {
+    marginRight: SPACING.sm,
+    padding: 4,
+  },
+  headerTextWrap: {
+    flex: 1,
+  },
   scrollContent: {
     paddingHorizontal: SPACING.md,
   },
@@ -861,6 +951,44 @@ const styles = StyleSheet.create({
   checkboxText: {
     ...FONTS.body,
     color: COLORS.text,
+  },
+  locationInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.inputBg,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.sm,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  locIcon: {
+    marginRight: 4,
+  },
+  autocompleteDropdown: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    marginTop: 4,
+    maxHeight: 180,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  autocompleteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.inputBg,
+    gap: SPACING.xs,
+  },
+  autocompleteText: {
+    ...FONTS.bodySmall,
+    color: COLORS.text,
+    flex: 1,
   },
   certificateWrap: {
     marginTop: SPACING.sm,

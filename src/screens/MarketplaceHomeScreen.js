@@ -19,7 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 
 const MODULES = [
-  { id: 'horses', title_ar: 'بيع الخيول', title_en: 'Horses', icon: 'paw-outline', screen: 'HomeMain' },
+  { id: 'horses', title_ar: 'بيع الخيول', title_en: 'Horses', icon: 'ribbon-outline', screen: 'HomeMain' },
   { id: 'equipment', title_ar: 'مستلزمات الخيل', title_en: 'Equipment', icon: 'shield-outline', screen: 'EquipmentListScreen' },
   { id: 'rider_gear', title_ar: 'مستلزمات الفارس', title_en: 'Rider Gear', icon: 'shirt-outline', screen: 'RiderGearListScreen' },
   { id: 'services', title_ar: 'الخدمات والإيواء', title_en: 'Services', icon: 'construct-outline', screen: 'ServiceListScreen' },

@@ -12,7 +12,7 @@ const LISTING_TYPES = [
     title_en: 'Sell a Horse',
     subtitle_ar: 'إضافة إعلان حصان جديد',
     subtitle_en: 'Add a new horse listing',
-    icon: 'paw-outline',
+    icon: 'ribbon-outline',
     screen: 'CreateListingMain',
   },
   {
