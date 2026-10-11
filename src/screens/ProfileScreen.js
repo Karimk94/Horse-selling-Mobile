@@ -471,14 +471,17 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         {/* Settings: Language */}
-        <View style={[styles.settingsSection, isRTL && styles.settingsSectionRTL]}>
+        <View
+          testID="profile-settings-section"
+          style={[styles.settingsSection, isRTL && styles.settingsSectionRTL]}
+        >
           <Text style={[styles.settingsTitle, isRTL && styles.textRTL]}>{t('settings')}</Text>
-          <View style={[styles.settingsCard, isRTL && styles.rowRTL]}>
+          <View testID="profile-language-card" style={styles.settingsCard}>
             <View style={[styles.settingsRow, isRTL && styles.rowRTL]}>
               <Ionicons name="globe-outline" size={22} color={COLORS.primary} />
               <Text style={[styles.settingsLabel, isRTL && styles.textRTL]}>{t('language')}</Text>
             </View>
-            <View style={[styles.langToggleRow, isRTL && styles.rowRTL]}>
+            <View testID="profile-language-options" style={styles.langToggleRow}>
               <TouchableOpacity
                 style={[styles.langOption, language === 'en' && styles.langOptionActive]}
                 onPress={() => handleLanguageChange('en')}
@@ -1012,7 +1015,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.lg,
   },
   settingsSectionRTL: {
-    alignItems: 'flex-end',
+    alignItems: 'stretch',
   },
   settingsTitle: {
     ...FONTS.caption,

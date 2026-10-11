@@ -342,7 +342,7 @@ export default function CreateListingScreen({ navigation }) {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+            <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color={COLORS.text} />
           </TouchableOpacity>
           <View style={styles.headerTextWrap}>
             <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('createListing')}</Text>

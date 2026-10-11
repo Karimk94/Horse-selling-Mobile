@@ -158,7 +158,7 @@ export default function EquipmentListScreen({ navigation, route }) {
       <View style={styles.headerContainer}>
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+            <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color={COLORS.text} />
           </TouchableOpacity>
           <Text style={styles.topBarTitle}>{isArabic ? 'مستلزمات الخيل' : 'Horse Equipment'}</Text>
         </View>

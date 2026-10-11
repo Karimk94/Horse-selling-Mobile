@@ -17,9 +17,11 @@ import { getEquipmentList, getRiderGearList, getServicesList } from '../services
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
+import BrandLogo from '../components/BrandLogo';
+import BrandMark from '../components/BrandMark';
 
 const MODULES = [
-  { id: 'horses', title_ar: 'بيع الخيول', title_en: 'Horses', icon: 'ribbon-outline', screen: 'HomeMain' },
+  { id: 'horses', title_ar: 'بيع الخيول', title_en: 'Horses', icon: 'horse', screen: 'HomeMain' },
   { id: 'equipment', title_ar: 'مستلزمات الخيل', title_en: 'Equipment', icon: 'shield-outline', screen: 'EquipmentListScreen' },
   { id: 'rider_gear', title_ar: 'مستلزمات الفارس', title_en: 'Rider Gear', icon: 'shirt-outline', screen: 'RiderGearListScreen' },
   { id: 'services', title_ar: 'الخدمات والإيواء', title_en: 'Services', icon: 'construct-outline', screen: 'ServiceListScreen' },
@@ -121,9 +123,12 @@ export default function MarketplaceHomeScreen({ navigation }) {
             <Text style={[styles.brandSubtitle, { textAlign: isRTL ? 'right' : 'left' }]}>
               {isArabic ? 'سوق الخيل والمستلزمات الأول' : 'The Premier Equestrian Marketplace'}
             </Text>
-            <Text style={[styles.brandTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
-              {isArabic ? 'الخيل والخدمات' : 'SteedMarket Hub'}
-            </Text>
+            <BrandLogo
+              title={isArabic ? 'الخيل والخدمات' : 'SteedMarket Hub'}
+              iconSize={26}
+              textStyle={[styles.brandTitle, { textAlign: isRTL ? 'right' : 'left' }]}
+              style={styles.brandTitleRow}
+            />
           </View>
 
           {isAdmin && (
@@ -168,7 +173,11 @@ export default function MarketplaceHomeScreen({ navigation }) {
                 }}
               >
                 <View style={[styles.moduleIconContainer, isSelected && styles.activeModuleIcon]}>
-                  <Ionicons name={m.icon} size={24} color={isSelected ? COLORS.white : COLORS.primary} />
+                  {m.id === 'horses' ? (
+                    <BrandMark size={24} color={isSelected ? COLORS.white : COLORS.primary} />
+                  ) : (
+                    <Ionicons name={m.icon} size={24} color={isSelected ? COLORS.white : COLORS.primary} />
+                  )}
                 </View>
                 <Text style={[styles.moduleTitle, isSelected && styles.activeModuleTitle]}>
                   {isArabic ? m.title_ar : m.title_en}
@@ -241,6 +250,7 @@ export default function MarketplaceHomeScreen({ navigation }) {
 
       {/* Floating Create Button */}
       <TouchableOpacity
+          testID="marketplace-create-button"
         style={styles.fabButton}
         activeOpacity={0.85}
         onPress={() => setShowCreateModal(true)}
@@ -259,6 +269,20 @@ export default function MarketplaceHomeScreen({ navigation }) {
             <Text style={styles.modalTitle}>
               {isArabic ? 'اختر قسم الإعلان الجديد' : 'Select Listing Category'}
             </Text>
+
+            <TouchableOpacity
+              testID="marketplace-create-horse-option"
+              style={[styles.modalOption, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              onPress={() => {
+                setShowCreateModal(false);
+                navigation.navigate('CreateListingMain');
+              }}
+            >
+              <BrandMark size={22} color={COLORS.primary} />
+              <Text style={styles.modalOptionText}>
+                {isArabic ? 'إضافة حصان للبيع' : 'Add a Horse Listing'}
+              </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.modalOption, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
@@ -334,6 +358,10 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     color: COLORS.primary,
+  },
+  brandTitleRow: {
+    alignSelf: 'stretch',
+    justifyContent: 'flex-start',
   },
   adminBadge: {
     flexDirection: 'row',

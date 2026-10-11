@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
+import BrandLogo from '../../components/BrandLogo';
 import { extractApiErrorMessage } from '../../utils/apiErrors';
 import { useToast } from '../../components/ToastProvider';
 
@@ -174,7 +175,7 @@ export default function SignupScreen({ navigation }) {
                 </Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.appName}>{t('appName')}</Text>
+            <BrandLogo title={t('appName')} iconSize={34} textStyle={styles.appName} />
             <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('createAccount')}</Text>
             <Text style={[styles.headerSubtitle, isRTL && styles.textRTL]}>
               {t('joinTagline')}

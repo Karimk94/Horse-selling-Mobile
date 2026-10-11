@@ -15,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getEquipmentDetail } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
+import SellerInfoCard from '../components/SellerInfoCard';
+import { toTelephoneNumber, toWhatsAppNumber } from '../utils/phoneNumbers';
 
 const { width } = Dimensions.get('window');
 
@@ -46,7 +48,7 @@ export default function EquipmentDetailScreen({ route, navigation }) {
   const handleCallOwner = () => {
     const phone = item?.owner?.phone_number || item?.owner?.profile?.phone_number;
     if (phone) {
-      Linking.openURL(`tel:${phone}`);
+      Linking.openURL(`tel:${toTelephoneNumber(phone)}`);
     } else {
       Alert.alert(t('error'), isArabic ? 'رقم الهاتف غير متوفر.' : 'Phone number not available.');
     }
@@ -55,7 +57,7 @@ export default function EquipmentDetailScreen({ route, navigation }) {
   const handleWhatsApp = () => {
     const phone = item?.owner?.phone_number || item?.owner?.profile?.phone_number;
     if (phone) {
-      const cleanPhone = phone.replace(/[^0-9+]/g, '');
+      const cleanPhone = toWhatsAppNumber(phone);
       const msg = encodeURIComponent(
         isArabic
           ? `مرحباً، أود الاستفسار عن إعلانك: ${item.title}`
@@ -122,7 +124,7 @@ export default function EquipmentDetailScreen({ route, navigation }) {
 
           {/* Top Bar Navigation Actions */}
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#0f172a" />
+            <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color="#0f172a" />
           </TouchableOpacity>
         </View>
 
@@ -189,15 +191,7 @@ export default function EquipmentDetailScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* Seller Card */}
-          <View style={styles.sellerCard}>
-            <Text style={styles.sellerCardTitle}>{t('aboutSeller')}</Text>
-            <Text style={styles.sellerName}>
-              {item.owner?.profile?.first_name
-                ? `${item.owner.profile.first_name} ${item.owner.profile.last_name || ''}`
-                : item.owner?.email}
-            </Text>
-          </View>
+          <SellerInfoCard seller={item.owner} isRTL={isRTL} t={t} />
         </View>
       </ScrollView>
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import BrandMark from '../components/BrandMark';
 import { useLanguage } from '../contexts/LanguageContext';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 
@@ -12,7 +13,7 @@ const LISTING_TYPES = [
     title_en: 'Sell a Horse',
     subtitle_ar: 'إضافة إعلان حصان جديد',
     subtitle_en: 'Add a new horse listing',
-    icon: 'ribbon-outline',
+    icon: 'horse',
     screen: 'CreateListingMain',
   },
   {
@@ -68,7 +69,11 @@ export default function SellHomeScreen({ navigation }) {
             onPress={() => navigation.navigate(item.screen)}
           >
             <View style={styles.iconWrap}>
-              <Ionicons name={item.icon} size={26} color={COLORS.primary} />
+              {item.id === 'horse' ? (
+                <BrandMark size={26} color={COLORS.primary} />
+              ) : (
+                <Ionicons name={item.icon} size={26} color={COLORS.primary} />
+              )}
             </View>
             <View style={[styles.cardTextWrap, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
               <Text style={[styles.cardTitle, { textAlign: isRTL ? 'right' : 'left' }]}>

@@ -15,6 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getRiderGearDetail } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
+import DetailActionBar from '../components/DetailActionBar';
+import SellerInfoCard from '../components/SellerInfoCard';
+import { toTelephoneNumber, toWhatsAppNumber } from '../utils/phoneNumbers';
 
 const { width } = Dimensions.get('window');
 
@@ -46,7 +49,7 @@ export default function RiderGearDetailScreen({ route, navigation }) {
   const handleCallOwner = () => {
     const phone = item?.owner?.phone_number || item?.owner?.profile?.phone_number;
     if (phone) {
-      Linking.openURL(`tel:${phone}`);
+      Linking.openURL(`tel:${toTelephoneNumber(phone)}`);
     } else {
       Alert.alert(t('error'), isArabic ? 'رقم الهاتف غير متوفر.' : 'Phone number not available.');
     }
@@ -55,7 +58,7 @@ export default function RiderGearDetailScreen({ route, navigation }) {
   const handleWhatsApp = () => {
     const phone = item?.owner?.phone_number || item?.owner?.profile?.phone_number;
     if (phone) {
-      const cleanPhone = phone.replace(/[^0-9+]/g, '');
+      const cleanPhone = toWhatsAppNumber(phone);
       const msg = encodeURIComponent(
         isArabic
           ? `مرحباً، أود الاستفسار عن إعلان مستلزمات الفارس: ${item.title}`
@@ -90,7 +93,7 @@ export default function RiderGearDetailScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={{ flex: 1 }}>
         {/* Gallery Slider */}
         <View style={styles.galleryContainer}>
           <ScrollView
@@ -125,7 +128,7 @@ export default function RiderGearDetailScreen({ route, navigation }) {
           )}
 
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#0f172a" />
+            <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color="#0f172a" />
           </TouchableOpacity>
         </View>
 
@@ -198,30 +201,17 @@ export default function RiderGearDetailScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* Seller Card */}
-          <View style={styles.sellerCard}>
-            <Text style={styles.sellerCardTitle}>{t('aboutSeller')}</Text>
-            <Text style={styles.sellerName}>
-              {item.owner?.profile?.first_name
-                ? `${item.owner.profile.first_name} ${item.owner.profile.last_name || ''}`
-                : item.owner?.email}
-            </Text>
-          </View>
+          <SellerInfoCard seller={item.owner} isRTL={isRTL} t={t} />
         </View>
       </ScrollView>
 
       {/* Bottom Action Bar */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={[styles.actionBtn, styles.callBtn]} onPress={handleCallOwner}>
-          <Ionicons name="call" size={20} color="#ffffff" />
-          <Text style={styles.actionBtnText}>{t('callOwner')}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.actionBtn, styles.whatsappBtn]} onPress={handleWhatsApp}>
-          <Ionicons name="logo-whatsapp" size={20} color="#ffffff" />
-          <Text style={styles.actionBtnText}>{t('whatsapp')}</Text>
-        </TouchableOpacity>
-      </View>
+      <DetailActionBar
+        actions={[
+          { id: 'call', icon: 'call', label: t('callOwner'), color: '#2563eb', onPress: handleCallOwner },
+          { id: 'whatsapp', icon: 'logo-whatsapp', label: t('whatsapp'), color: '#16a34a', onPress: handleWhatsApp },
+        ]}
+      />
     </SafeAreaView>
   );
 }
@@ -235,9 +225,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  scrollContent: {
-    paddingBottom: 90,
   },
   galleryContainer: {
     position: 'relative',

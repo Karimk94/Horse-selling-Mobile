@@ -369,11 +369,17 @@ export default function HomeScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       {/* Header */}
-      <View style={[styles.header, isRTL && styles.headerRTL]}>
-        <View>
-            <Text style={styles.headerTitle}>{t('appName')}</Text>
-            <Text style={styles.headerSubtitle}>{t('tagline')}</Text>
-          </View>
+      <View style={styles.headerContainer}>
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            testID="horse-list-back-button"
+            style={styles.backBtn}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+          <Text style={styles.topBarTitle}>{t('horses')}</Text>
+        </View>
       </View>
 
       {loading && horses.length === 0 ? (
@@ -382,7 +388,7 @@ export default function HomeScreen({ navigation }) {
           scrollEnabled={false}
           keyExtractor={(_, i) => `skeleton-${i}`}
           renderItem={() => <SkeletonCard />}
-          ListHeaderComponent={renderHeader}
+          ListHeaderComponent={renderHeader()}
         />
       ) : fetchError ? (
         <View style={styles.loadingContainer}>
@@ -406,7 +412,7 @@ export default function HomeScreen({ navigation }) {
               isFavorited={favorites.has(item.id)}
             />
           )}
-          ListHeaderComponent={renderHeader}
+          ListHeaderComponent={renderHeader()}
           ListEmptyComponent={
             <View style={styles.emptyStateWrap}>
               <EmptyState
@@ -466,24 +472,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+  headerContainer: {
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-  headerRTL: {
-    flexDirection: 'row-reverse',
-  },
-  logoRow: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
   },
-  logoImage: {
-    width: 42,
-    height: 42,
+  backBtn: {
+    marginRight: 10,
+    padding: 2,
   },
   rowRTL: {
     flexDirection: 'row-reverse',
@@ -496,14 +499,10 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  headerTitle: {
-    ...FONTS.h1,
-    color: COLORS.primary,
-  },
-  headerSubtitle: {
-    ...FONTS.bodySmall,
-    color: COLORS.textSecondary,
-    marginTop: 2,
+  topBarTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.text,
   },
   listContent: {
     paddingBottom: SPACING.xxl,

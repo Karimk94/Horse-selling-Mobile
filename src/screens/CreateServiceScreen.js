@@ -168,7 +168,7 @@ export default function CreateServiceScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#0f172a" />
+            <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color="#0f172a" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {isArabic ? 'إضافة خدمة خيل جديدة' : 'Add Equestrian Service Listing'}

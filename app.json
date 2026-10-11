@@ -8,6 +8,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#FAF8F5"
     },
@@ -42,6 +43,10 @@
       "eas": {
         "projectId": "d5c39185-dec5-4041-ba23-8dcca0f0586c"
       }
-    }
+    },
+    "plugins": [
+      "expo-status-bar",
+      "expo-font"
+    ]
   }
 }

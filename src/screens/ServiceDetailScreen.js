@@ -19,6 +19,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getServiceDetail, sendServiceInquiry } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
+import DetailActionBar from '../components/DetailActionBar';
+import SellerInfoCard from '../components/SellerInfoCard';
+import { toTelephoneNumber, toWhatsAppNumber } from '../utils/phoneNumbers';
 
 const { width } = Dimensions.get('window');
 
@@ -57,7 +60,7 @@ export default function ServiceDetailScreen({ route, navigation }) {
   const handleCallProvider = () => {
     const phone = item?.provider?.phone_number || item?.provider?.profile?.phone_number;
     if (phone) {
-      Linking.openURL(`tel:${phone}`);
+      Linking.openURL(`tel:${toTelephoneNumber(phone)}`);
     } else {
       Alert.alert(t('error'), isArabic ? 'رقم الهاتف غير متوفر.' : 'Phone number not available.');
     }
@@ -66,7 +69,7 @@ export default function ServiceDetailScreen({ route, navigation }) {
   const handleWhatsApp = () => {
     const phone = item?.provider?.phone_number || item?.provider?.profile?.phone_number;
     if (phone) {
-      const cleanPhone = phone.replace(/[^0-9+]/g, '');
+      const cleanPhone = toWhatsAppNumber(phone);
       const msg = encodeURIComponent(
         isArabic
           ? `مرحباً، أود الاستفسار عن خدمتك: ${item.title}`
@@ -144,7 +147,7 @@ export default function ServiceDetailScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={{ flex: 1 }}>
         {/* Gallery Slider */}
         <View style={styles.galleryContainer}>
           <ScrollView
@@ -179,7 +182,7 @@ export default function ServiceDetailScreen({ route, navigation }) {
           )}
 
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#0f172a" />
+            <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color="#0f172a" />
           </TouchableOpacity>
         </View>
 
@@ -226,35 +229,23 @@ export default function ServiceDetailScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* Provider Card */}
-          <View style={styles.providerCard}>
-            <Text style={styles.providerCardTitle}>
-              {isArabic ? 'مقدم الخدمة' : 'Service Provider'}
-            </Text>
-            <Text style={styles.providerName}>
-              {item.provider?.profile?.first_name
-                ? `${item.provider.profile.first_name} ${item.provider.profile.last_name || ''}`
-                : item.provider?.email}
-            </Text>
-          </View>
+          <SellerInfoCard seller={item.provider} isRTL={isRTL} t={t} />
         </View>
       </ScrollView>
 
       {/* Bottom Action Bar */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.inquiryBtn]}
-          onPress={() => setShowInquiryModal(true)}
-        >
-          <Ionicons name="chatbubbles" size={20} color="#ffffff" />
-          <Text style={styles.actionBtnText}>{isArabic ? 'طلب حجز / استفسار' : 'Inquire / Reserve'}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.actionBtn, styles.callBtn]} onPress={handleCallProvider}>
-          <Ionicons name="call" size={20} color="#ffffff" />
-          <Text style={styles.actionBtnText}>{t('callOwner')}</Text>
-        </TouchableOpacity>
-      </View>
+      <DetailActionBar
+        actions={[
+          {
+            id: 'inquiry',
+            icon: 'chatbubbles',
+            label: isArabic ? 'طلب حجز / استفسار' : 'Inquire / Reserve',
+            color: '#2563eb',
+            onPress: () => setShowInquiryModal(true),
+          },
+          { id: 'call', icon: 'call', label: t('callOwner'), color: '#16a34a', onPress: handleCallProvider },
+        ]}
+      />
 
       {/* Inquiry Reservation Modal */}
       <Modal visible={showInquiryModal} animationType="slide" transparent>
@@ -329,9 +320,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  scrollContent: {
-    paddingBottom: 90,
   },
   galleryContainer: {
     position: 'relative',

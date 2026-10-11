@@ -15,16 +15,17 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as apiService from '../services/api';
 import { calculateHorseTrustScore } from '../utils/trustScore';
-import OfferHistorySheet from '../components/OfferHistorySheet';
 import { extractApiErrorMessage } from '../utils/apiErrors';
 import { useToast } from '../components/ToastProvider';
+import SellerInfoCard from '../components/SellerInfoCard';
+import { toTelephoneNumber, toWhatsAppNumber } from '../utils/phoneNumbers';
 
 const { width } = Dimensions.get('window');
 const IMAGE_HEIGHT = 320;
@@ -45,7 +46,6 @@ export default function HorseDetailScreen({ route, navigation }) {
   const [horse, setHorse] = useState(initialHorse);
   const [isFav, setIsFav] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [showOffersSheet, setShowOffersSheet] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -180,6 +180,55 @@ export default function HorseDetailScreen({ route, navigation }) {
     }
   };
 
+  const getSellerPhone = () =>
+    horse.owner?.phone_number || horse.owner?.profile?.phone_number;
+
+  const handleCallSeller = () => {
+    if (isSold || isDeleted) {
+      Alert.alert(unavailableTitle, unavailableMessage);
+      return;
+    }
+
+    const phone = getSellerPhone();
+    if (phone) {
+      Linking.openURL(`tel:${toTelephoneNumber(phone)}`);
+    } else {
+      Alert.alert(t('error'), isRTL ? 'رقم الهاتف غير متوفر.' : 'Phone number not available.');
+    }
+  };
+
+  const handleWhatsAppSeller = () => {
+    if (isSold || isDeleted) {
+      Alert.alert(unavailableTitle, unavailableMessage);
+      return;
+    }
+
+    const phone = getSellerPhone();
+    if (phone) {
+      const cleanPhone = toWhatsAppNumber(phone);
+      const message = isRTL
+        ? `مرحباً، أود الاستفسار عن إعلانك: ${horse.title}`
+        : `Hello, I am inquiring about your listing: ${horse.title}`;
+      Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`);
+    } else {
+      Alert.alert(t('error'), isRTL ? 'رقم الهاتف غير متوفر.' : 'Phone number not available.');
+    }
+  };
+
+  const handleEmailSeller = () => {
+    if (isSold || isDeleted) {
+      Alert.alert(unavailableTitle, unavailableMessage);
+      return;
+    }
+
+    const email = horse.owner?.email;
+    if (email) {
+      Linking.openURL(`mailto:${email}?subject=${encodeURIComponent(horse.title)}`);
+    } else {
+      Alert.alert(t('error'), t('sellerInfoUnavailable'));
+    }
+  };
+
   const handleReopenListing = async () => {
     if (!canReopen || reopening) return;
     setReopening(true);
@@ -238,7 +287,7 @@ export default function HorseDetailScreen({ route, navigation }) {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['bottom']} style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       {/* Animated Header */}
@@ -258,11 +307,10 @@ export default function HorseDetailScreen({ route, navigation }) {
         style={[
           styles.backButton,
           { top: insets.top + SPACING.sm },
-          isRTL ? styles.backButtonRTL : null,
         ]}
         onPress={() => navigation.goBack()}
       >
-        <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color={COLORS.white} />
+        <Ionicons name="arrow-back" size={24} color={COLORS.white} />
       </TouchableOpacity>
 
       {/* Share Button */}
@@ -270,7 +318,6 @@ export default function HorseDetailScreen({ route, navigation }) {
         style={[
           styles.shareButton,
           { top: insets.top + SPACING.sm },
-          isRTL ? styles.shareButtonRTL : null,
         ]}
         onPress={toggleFavorite}
       >
@@ -284,6 +331,7 @@ export default function HorseDetailScreen({ route, navigation }) {
       </TouchableOpacity>
 
       <Animated.ScrollView
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -522,103 +570,38 @@ export default function HorseDetailScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* Owner Card */}
-          {horse.owner && (
-            <View style={styles.sectionCard}>
-              <Text style={[styles.sectionTitle, isRTL && styles.textRTL]}>{t('aboutSeller')}</Text>
-              <View style={[styles.ownerRow, isRTL && styles.rowRTL]}>
-                <View style={styles.ownerAvatar}>
-                  <Text style={styles.ownerInitial}>
-                    {(
-                      horse.owner.profile?.first_name?.[0] ||
-                      horse.owner.email?.[0] ||
-                      '?'
-                    ).toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.ownerInfo}>
-                  <View style={[styles.ownerNameRow, isRTL && styles.rowRTL]}>
-                    <Text style={[styles.ownerName, isRTL && styles.textRTL]}>
-                      {horse.owner.profile?.first_name || t('userFallback')}{' '}
-                      {horse.owner.profile?.last_name || ''}
-                    </Text>
-                    {horse.owner?.is_verified && (
-                      <View style={[styles.ownerVerifiedBadge, isRTL && styles.rowRTL]}>
-                        <Ionicons name="checkmark-circle" size={13} color={COLORS.success} />
-                        <Text style={styles.ownerVerifiedText}>{t('verified')}</Text>
-                      </View>
-                    )}
-                  </View>
-                  {horse.owner.profile?.location && (
-                    <View style={[styles.ownerLocation, isRTL && styles.rowRTL]}>
-                      <Ionicons
-                        name="location-outline"
-                        size={14}
-                        color={COLORS.textLight}
-                      />
-                      <Text style={[styles.ownerLocationText, isRTL && styles.textRTL]}>
-                        {horse.owner.profile.location}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </View>
-          )}
+          <SellerInfoCard
+            seller={horse.owner}
+            isRTL={isRTL}
+            t={t}
+            onEmailPress={handleEmailSeller}
+          />
 
-          <View style={{ height: 100 }} />
         </View>
       </Animated.ScrollView>
 
       {/* Bottom Action Bar */}
-      <View
-        style={[
-          styles.bottomBar,
-          { paddingBottom: insets.bottom + SPACING.sm },
-          isRTL && styles.bottomBarRTL,
-        ]}
-      >
-        <View style={[styles.bottomBarPrice, isRTL && styles.bottomBarPriceRTL]}>
-          <Text style={[styles.bottomBarPriceLabel, isRTL && styles.textRTL]}>{t('priceLabel')}</Text>
-          <Text style={styles.bottomBarPriceValue}>
-            ${displayPrice?.toLocaleString() ?? t('poa')}
-          </Text>
-        </View>
-        <View style={[styles.actionButtonsWrap, isRTL && styles.actionButtonsWrapRTL]}>
-          <TouchableOpacity
-            style={[styles.offerBtn, isRTL && styles.offerBtnRTL, (isSold || isDeleted) && styles.disabledActionBtn]}
-            onPress={() => ((isSold || isDeleted) ? Alert.alert(unavailableTitle, unavailableMessage) : setShowOffersSheet(true))}
-          >
-            <Ionicons name="pricetag-outline" size={18} color={COLORS.white} />
-            <Text style={styles.offerBtnText}>{t('offers')}</Text>
-          </TouchableOpacity>
+      <View testID="horse-detail-footer" style={styles.bottomBar}>
+        <TouchableOpacity
+          testID="horse-call-seller-button"
+          style={[styles.actionBtn, styles.callBtn, (isSold || isDeleted) && styles.disabledActionBtn]}
+          onPress={handleCallSeller}
+        >
+          <Ionicons name="call" size={20} color="#ffffff" />
+          <Text style={styles.actionBtnText}>{t('callSeller')}</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.contactBtn, isRTL && styles.contactBtnRTL, (isSold || isDeleted) && styles.disabledActionBtn]}
-            onPress={() =>
-              (isSold || isDeleted)
-                ? Alert.alert(unavailableTitle, unavailableMessage)
-                : Alert.alert(
-                    t('contactSeller'),
-                    horse.owner?.email
-                      ? `${t('email')}: ${horse.owner.email}`
-                      : t('sellerInfoUnavailable')
-                  )
-            }
-          >
-            <Ionicons name="chatbubble-outline" size={20} color={COLORS.white} />
-            <Text style={styles.contactBtnText}>{t('contactSeller')}</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          testID="horse-whatsapp-seller-button"
+          style={[styles.actionBtn, styles.whatsappBtn, (isSold || isDeleted) && styles.disabledActionBtn]}
+          onPress={handleWhatsAppSeller}
+        >
+          <Ionicons name="logo-whatsapp" size={20} color="#ffffff" />
+          <Text style={styles.actionBtnText}>{t('whatsapp')}</Text>
+        </TouchableOpacity>
       </View>
 
-      <OfferHistorySheet
-        horseId={horse.id}
-        isVisible={showOffersSheet}
-        onClose={() => setShowOffersSheet(false)}
-        userRole={horse.owner?.id === user?.id ? 'seller' : 'buyer'}
-      />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -632,6 +615,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  scrollContent: {
+    paddingBottom: 90,
   },
   animatedHeader: {
     position: 'absolute',
@@ -662,10 +648,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backButtonRTL: {
-    left: 'auto',
-    right: SPACING.md,
-  },
   shareButton: {
     position: 'absolute',
     right: SPACING.md,
@@ -676,10 +658,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  shareButtonRTL: {
-    right: 'auto',
-    left: SPACING.md,
   },
   imageContainer: {
     width,
@@ -957,6 +935,19 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: '600',
   },
+  ownerEmailAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginTop: SPACING.xs,
+  },
+  ownerEmailText: {
+    ...FONTS.bodySmall,
+    color: COLORS.primary,
+    flex: 1,
+    textAlign: 'left',
+    writingDirection: 'ltr',
+  },
   ownerNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -993,46 +984,35 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-    ...SHADOWS.tabBar,
+    borderTopColor: '#e2e8f0',
+    elevation: 8,
   },
-  bottomBarRTL: {
-    flexDirection: 'row-reverse',
-  },
-  bottomBarPrice: {},
-  bottomBarPriceRTL: {
-    alignItems: 'flex-end',
-  },
-  bottomBarPriceLabel: {
-    ...FONTS.bodySmall,
-    color: COLORS.textLight,
-  },
-  bottomBarPriceValue: {
-    ...FONTS.price,
-    color: COLORS.primary,
-  },
-  contactBtn: {
+  actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginHorizontal: 6,
   },
-  contactBtnRTL: {
-    flexDirection: 'row-reverse',
+  callBtn: {
+    backgroundColor: '#2563eb',
   },
-  contactBtnText: {
-    ...FONTS.button,
-    color: COLORS.white,
+  whatsappBtn: {
+    backgroundColor: '#16a34a',
+  },
+  actionBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginLeft: 8,
   },
   disabledActionBtn: {
     opacity: 0.55,
@@ -1066,26 +1046,8 @@ const styles = StyleSheet.create({
   actionButtonsWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  actionButtonsWrapRTL: {
-    flexDirection: 'row-reverse',
-  },
-  offerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.secondary,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-  },
-  offerBtnRTL: {
-    flexDirection: 'row-reverse',
-  },
-  offerBtnText: {
-    ...FONTS.button,
-    color: COLORS.white,
+    gap: SPACING.xs,
+    width: '100%',
   },
   rowRTL: {
     flexDirection: 'row-reverse',

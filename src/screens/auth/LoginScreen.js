@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
+import BrandLogo from '../../components/BrandLogo';
 import { useToast } from '../../components/ToastProvider';
 
 export default function LoginScreen({ navigation }) {
@@ -110,13 +111,7 @@ export default function LoginScreen({ navigation }) {
 
           {/* Logo Area */}
           <View style={styles.logoArea}>
-            <Text
-                style={styles.appName}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {t('appName')}
-              </Text>
+            <BrandLogo title={t('appName')} iconSize={40} textStyle={styles.appName} />
             <Text style={[styles.tagline, isRTL && styles.textRTL]}>{t('tagline')}</Text>
           </View>
 

@@ -206,7 +206,7 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#0f172a" />
+          <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color="#0f172a" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{isArabic ? 'لوحة مراجعة الإعلانات' : 'Moderation Dashboard'}</Text>
       </View>
