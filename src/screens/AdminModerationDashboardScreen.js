@@ -19,22 +19,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import {
   adminGetPendingEquipment,
+  adminGetRejectedEquipment,
   adminApproveEquipment,
   adminRejectEquipment,
   adminGetPendingRiderGear,
+  adminGetRejectedRiderGear,
   adminApproveRiderGear,
   adminRejectRiderGear,
   adminGetPendingServices,
+  adminGetRejectedServices,
   adminApproveService,
   adminRejectService,
 } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function AdminModerationDashboardScreen({ navigation, route }) {
-  const [activeTab, setActiveTab] = useState('equipment'); // equipment, rider_gear, services
+  const initialTabParam = route?.params?.initialTab;
+  const [activeTab, setActiveTab] = useState(initialTabParam || 'equipment'); // equipment, rider_gear, services
+  const [statusFilter, setStatusFilter] = useState('pending_review'); // 'pending_review' or 'rejected'
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [counts, setCounts] = useState({ equipment: 0, rider_gear: 0, services: 0 });
+  const [rejectedCounts, setRejectedCounts] = useState({ equipment: 0, rider_gear: 0, services: 0 });
 
   // Rejection Modal State
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -45,34 +52,77 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
   const { language: currentLanguage, t, isRTL } = useLanguage();
   const isArabic = currentLanguage === 'ar';
 
-  const fetchPendingItems = useCallback(async () => {
+  useEffect(() => {
+    if (route?.params?.initialTab) {
+      setActiveTab(route.params.initialTab);
+    }
+  }, [route?.params?.initialTab]);
+
+  const fetchCounts = useCallback(async () => {
+    try {
+      const [eqPen, rgPen, svPen, eqRej, rgRej, svRej] = await Promise.all([
+        adminGetPendingEquipment(0, 1),
+        adminGetPendingRiderGear(0, 1),
+        adminGetPendingServices(0, 1),
+        adminGetRejectedEquipment(0, 1),
+        adminGetRejectedRiderGear(0, 1),
+        adminGetRejectedServices(0, 1),
+      ]);
+      setCounts({
+        equipment: eqPen.data?.total || eqPen.data?.items?.length || 0,
+        rider_gear: rgPen.data?.total || rgPen.data?.items?.length || 0,
+        services: svPen.data?.total || svPen.data?.items?.length || 0,
+      });
+      setRejectedCounts({
+        equipment: eqRej.data?.total || eqRej.data?.items?.length || 0,
+        rider_gear: rgRej.data?.total || rgRej.data?.items?.length || 0,
+        services: svRej.data?.total || svRej.data?.items?.length || 0,
+      });
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
       let res;
-      if (activeTab === 'equipment') {
-        res = await adminGetPendingEquipment();
-      } else if (activeTab === 'rider_gear') {
-        res = await adminGetPendingRiderGear();
+      if (statusFilter === 'rejected') {
+        if (activeTab === 'equipment') {
+          res = await adminGetRejectedEquipment();
+        } else if (activeTab === 'rider_gear') {
+          res = await adminGetRejectedRiderGear();
+        } else {
+          res = await adminGetRejectedServices();
+        }
       } else {
-        res = await adminGetPendingServices();
+        if (activeTab === 'equipment') {
+          res = await adminGetPendingEquipment();
+        } else if (activeTab === 'rider_gear') {
+          res = await adminGetPendingRiderGear();
+        } else {
+          res = await adminGetPendingServices();
+        }
       }
       setItems(res.data?.items || []);
     } catch (error) {
       console.warn('[AdminModerationDashboard] Fetch error:', error);
-      Alert.alert(t('error'), isArabic ? 'فشل تحميل الإعلانات المعلقة.' : 'Failed to fetch pending items.');
+      Alert.alert(t('error'), isArabic ? 'فشل تحميل الإعلانات.' : 'Failed to fetch items.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeTab]);
+  }, [activeTab, statusFilter]);
 
   useEffect(() => {
-    fetchPendingItems();
-  }, [activeTab]);
+    fetchItems();
+    fetchCounts();
+  }, [activeTab, statusFilter]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchPendingItems();
+    fetchItems();
+    fetchCounts();
   };
 
   const handleApprove = async (item) => {
@@ -94,7 +144,8 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
                 await adminApproveService(item.id);
               }
               Alert.alert(t('success'), isArabic ? 'تم قبول الإعلان بنجاح.' : 'Listing approved successfully.');
-              fetchPendingItems();
+              fetchItems();
+              fetchCounts();
             } catch (err) {
               Alert.alert(t('error'), isArabic ? 'فشل قبول الإعلان.' : 'Failed to approve listing.');
             } finally {
@@ -129,7 +180,8 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
       }
       setShowRejectModal(false);
       Alert.alert(t('success'), isArabic ? 'تم رفض الإعلان بنجاح.' : 'Listing rejected successfully.');
-      fetchPendingItems();
+      fetchItems();
+      fetchCounts();
     } catch (err) {
       Alert.alert(t('error'), isArabic ? 'فشل رفض الإعلان.' : 'Failed to reject listing.');
     } finally {
@@ -138,8 +190,9 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
   };
 
   const renderPendingCard = ({ item }) => {
-    const mainImage = item.images?.[0]?.image_url || 'https://via.placeholder.com/300x200?text=Pending+Item';
+    const mainImage = item.images?.[0]?.image_url || 'https://via.placeholder.com/300x200?text=Listing';
     const categoryName = isArabic ? item.category?.name_ar : item.category?.name_en;
+    const isRejected = item.status === 'rejected';
 
     return (
       <View style={styles.card}>
@@ -152,9 +205,15 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
                 <Text style={styles.categoryText}>{categoryName}</Text>
               </View>
             )}
-            <View style={styles.pendingBadge}>
-              <Text style={styles.pendingBadgeText}>{isArabic ? 'قيد المراجعة' : 'Pending Review'}</Text>
-            </View>
+            {isRejected ? (
+              <View style={styles.rejectedBadge}>
+                <Text style={styles.rejectedBadgeText}>{isArabic ? 'مرفوض' : 'Rejected'}</Text>
+              </View>
+            ) : (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>{isArabic ? 'قيد المراجعة' : 'Pending Review'}</Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.cardTitle}>{item.title}</Text>
@@ -176,25 +235,44 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
             </Text>
           )}
 
+          {/* Rejection Reason Notice */}
+          {isRejected && item.rejection_reason && (
+            <View style={styles.rejectionReasonBox}>
+              <View style={[styles.rejectionReasonHeader, isRTL && styles.rowRTL]}>
+                <Ionicons name="alert-circle" size={16} color="#dc2626" />
+                <Text style={styles.rejectionReasonTitle}>
+                  {isArabic ? 'سبب الرفض:' : 'Rejection Reason:'}
+                </Text>
+              </View>
+              <Text style={styles.rejectionReasonContent}>{item.rejection_reason}</Text>
+            </View>
+          )}
+
           {/* Action Buttons */}
-          <View style={styles.actionRow}>
+          <View style={[styles.actionRow, isRTL && styles.rowRTL]}>
             <TouchableOpacity
               style={[styles.actionBtn, styles.approveBtn]}
               disabled={submittingAction}
               onPress={() => handleApprove(item)}
             >
               <Ionicons name="checkmark-circle" size={18} color="#ffffff" />
-              <Text style={styles.actionBtnText}>{isArabic ? 'قبول' : 'Approve'}</Text>
+              <Text style={styles.actionBtnText}>
+                {isRejected
+                  ? (isArabic ? 'إلغاء الرفض وقبول' : 'Approve Listing')
+                  : (isArabic ? 'قبول' : 'Approve')}
+              </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.rejectBtn]}
-              disabled={submittingAction}
-              onPress={() => handleOpenRejectModal(item)}
-            >
-              <Ionicons name="close-circle" size={18} color="#ffffff" />
-              <Text style={styles.actionBtnText}>{isArabic ? 'رفض' : 'Reject'}</Text>
-            </TouchableOpacity>
+            {!isRejected && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.rejectBtn]}
+                disabled={submittingAction}
+                onPress={() => handleOpenRejectModal(item)}
+              >
+                <Ionicons name="close-circle" size={18} color="#ffffff" />
+                <Text style={styles.actionBtnText}>{isArabic ? 'رفض' : 'Reject'}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -219,6 +297,7 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
         >
           <Text style={[styles.tabText, activeTab === 'equipment' && styles.activeTabText]}>
             {isArabic ? 'مستلزمات الخيل' : 'Equipment'}
+            {counts.equipment > 0 ? ` (${counts.equipment})` : ''}
           </Text>
         </TouchableOpacity>
 
@@ -228,6 +307,7 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
         >
           <Text style={[styles.tabText, activeTab === 'rider_gear' && styles.activeTabText]}>
             {isArabic ? 'مستلزمات الفارس' : 'Rider Gear'}
+            {counts.rider_gear > 0 ? ` (${counts.rider_gear})` : ''}
           </Text>
         </TouchableOpacity>
 
@@ -237,6 +317,46 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
         >
           <Text style={[styles.tabText, activeTab === 'services' && styles.activeTabText]}>
             {isArabic ? 'الخدمات' : 'Services'}
+            {counts.services > 0 ? ` (${counts.services})` : ''}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Status Filter: Pending Review vs Rejected */}
+      <View style={[styles.statusFilterRow, isRTL && styles.rowRTL]}>
+        <TouchableOpacity
+          style={[
+            styles.statusFilterBtn,
+            statusFilter === 'pending_review' && styles.statusFilterBtnActive,
+          ]}
+          onPress={() => setStatusFilter('pending_review')}
+        >
+          <Text
+            style={[
+              styles.statusFilterText,
+              statusFilter === 'pending_review' && styles.statusFilterTextActive,
+            ]}
+          >
+            ⏳ {isArabic ? 'بانتظار المراجعة' : 'Pending Review'}
+            {counts[activeTab] > 0 ? ` (${counts[activeTab]})` : ''}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.statusFilterBtn,
+            statusFilter === 'rejected' && styles.statusFilterBtnActiveRejected,
+          ]}
+          onPress={() => setStatusFilter('rejected')}
+        >
+          <Text
+            style={[
+              styles.statusFilterText,
+              statusFilter === 'rejected' && styles.statusFilterTextActiveRejected,
+            ]}
+          >
+            ❌ {isArabic ? 'المرفوضة' : 'Rejected'}
+            {rejectedCounts[activeTab] > 0 ? ` (${rejectedCounts[activeTab]})` : ''}
           </Text>
         </TouchableOpacity>
       </View>
@@ -257,12 +377,20 @@ export default function AdminModerationDashboardScreen({ navigation, route }) {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="checkmark-done-circle-outline" size={54} color="#16a34a" />
+              <Ionicons
+                name={statusFilter === 'rejected' ? 'checkmark-circle-outline' : 'checkmark-done-circle-outline'}
+                size={54}
+                color={statusFilter === 'rejected' ? '#64748b' : '#16a34a'}
+              />
               <Text style={styles.emptyTitle}>
-                {isArabic ? 'لا توجد إعلانات بانتظار المراجعة' : 'No pending items to review'}
+                {statusFilter === 'rejected'
+                  ? (isArabic ? 'لا توجد إعلانات مرفوضة' : 'No rejected items')
+                  : (isArabic ? 'لا توجد إعلانات بانتظار المراجعة' : 'No pending items to review')}
               </Text>
               <Text style={styles.emptySubtitle}>
-                {isArabic ? 'تمت مراجعة كافة الإعلانات في هذا القسم.' : 'All items in this section have been reviewed.'}
+                {statusFilter === 'rejected'
+                  ? (isArabic ? 'لم يتم رفض أي إعلان في هذا القسم.' : 'No items have been rejected in this section.')
+                  : (isArabic ? 'تمت مراجعة كافة الإعلانات في هذا القسم.' : 'All items in this section have been reviewed.')}
               </Text>
             </View>
           }
@@ -422,6 +550,83 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#92400e',
+  },
+  rejectedBadge: {
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  rejectedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#b91c1c',
+  },
+  statusFilterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#f1f5f9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  statusFilterBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusFilterBtnActive: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#2563eb',
+  },
+  statusFilterBtnActiveRejected: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#dc2626',
+  },
+  statusFilterText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  statusFilterTextActive: {
+    color: '#2563eb',
+    fontWeight: '700',
+  },
+  statusFilterTextActiveRejected: {
+    color: '#dc2626',
+    fontWeight: '700',
+  },
+  rejectionReasonBox: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  rejectionReasonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  rejectionReasonTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#dc2626',
+  },
+  rejectionReasonContent: {
+    fontSize: 13,
+    color: '#7f1d1d',
+    lineHeight: 18,
   },
   cardTitle: {
     fontSize: 16,

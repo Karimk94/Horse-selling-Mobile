@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 import { useLanguage } from '../contexts/LanguageContext';
 import { calculateHorseTrustScore } from '../utils/trustScore';
+import { resolveMediaUrl } from '../config/api';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - SPACING.md * 2;
@@ -27,10 +28,11 @@ export default function HorseCard({ horse, onPress, onFavorite, isFavorited }) {
   const trust = useMemo(() => calculateHorseTrustScore(horse), [horse]);
   const images = useMemo(() => {
     if (Array.isArray(horse?.images) && horse.images.length > 0) {
-      return horse.images.map((img) => img?.image_url).filter(Boolean);
+      return horse.images.map((img) => resolveMediaUrl(img?.image_url)).filter(Boolean);
     }
     if (horse?.image_url) {
-      return [horse.image_url];
+      const resolved = resolveMediaUrl(horse.image_url);
+      return resolved ? [resolved] : [];
     }
     return [];
   }, [horse]);

@@ -26,6 +26,8 @@ import { extractApiErrorMessage } from '../utils/apiErrors';
 import { useToast } from '../components/ToastProvider';
 import SellerInfoCard from '../components/SellerInfoCard';
 import { toTelephoneNumber, toWhatsAppNumber } from '../utils/phoneNumbers';
+import { resolveMediaUrl } from '../config/api';
+
 
 const { width } = Dimensions.get('window');
 const IMAGE_HEIGHT = 320;
@@ -53,10 +55,11 @@ export default function HorseDetailScreen({ route, navigation }) {
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const images = horse?.images?.length
-    ? horse.images.map((img) => img.image_url)
+    ? horse.images.map((img) => resolveMediaUrl(img?.image_url)).filter(Boolean)
     : horse?.image_url
-    ? [horse.image_url]
+    ? [resolveMediaUrl(horse.image_url)].filter(Boolean)
     : [];
+
 
   // Re-fetch fresh data whenever this screen is focused
   useFocusEffect(

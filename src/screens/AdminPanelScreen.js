@@ -4,8 +4,10 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   RefreshControl,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -46,8 +48,16 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
   const [deletedListingsTotal, setDeletedListingsTotal] = useState(0);
   const [restoreWindowDays, setRestoreWindowDays] = useState(30);
   const [latestReviewByHorse, setLatestReviewByHorse] = useState({});
-  const [rejectingHorseId, setRejectingHorseId] = useState(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingHorse, setRejectingHorse] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [submittingReject, setSubmittingReject] = useState(false);
+  const [nonHorsePendingCounts, setNonHorsePendingCounts] = useState({
+    equipment: 0,
+    riderGear: 0,
+    services: 0,
+    total: 0,
+  });
   const [loadingMoreTab, setLoadingMoreTab] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [purgingExpired, setPurgingExpired] = useState(false);
@@ -152,18 +162,33 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
     refreshAbortControllerRef.current = controller;
 
     try {
-      const payload = await apiService.adminFetchDashboard({
-        skip: 0,
-        limit: PAGE_LIMIT,
-        force,
-        signal: controller.signal,
-      });
+      const [payload, eqRes, rgRes, svRes] = await Promise.all([
+        apiService.adminFetchDashboard({
+          skip: 0,
+          limit: PAGE_LIMIT,
+          force,
+          signal: controller.signal,
+        }),
+        apiService.adminGetPendingEquipment(0, 1).catch(() => ({ data: { total: 0 } })),
+        apiService.adminGetPendingRiderGear(0, 1).catch(() => ({ data: { total: 0 } })),
+        apiService.adminGetPendingServices(0, 1).catch(() => ({ data: { total: 0 } })),
+      ]);
 
       if (refreshAbortControllerRef.current !== controller) {
         return;
       }
 
       applyDashboardPayload(payload);
+
+      const eqTotal = eqRes.data?.total ?? eqRes.data?.items?.length ?? 0;
+      const rgTotal = rgRes.data?.total ?? rgRes.data?.items?.length ?? 0;
+      const svTotal = svRes.data?.total ?? svRes.data?.items?.length ?? 0;
+      setNonHorsePendingCounts({
+        equipment: eqTotal,
+        riderGear: rgTotal,
+        services: svTotal,
+        total: eqTotal + rgTotal + svTotal,
+      });
     } catch (err) {
       const requestCanceled =
         typeof apiService.isRequestCanceled === 'function' && apiService.isRequestCanceled(err);
@@ -386,25 +411,31 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
     }
   };
 
-  const openRejectEditor = (horseId) => {
-    setRejectingHorseId(horseId);
+  const openRejectEditor = (horse) => {
+    setRejectingHorse(horse);
     setRejectReason('');
+    setShowRejectModal(true);
   };
 
   const cancelRejectEditor = () => {
-    setRejectingHorseId(null);
+    setShowRejectModal(false);
+    setRejectingHorse(null);
     setRejectReason('');
   };
 
-  const handleRejectSubmit = async (horseId) => {
+  const handleRejectSubmit = async () => {
+    if (!rejectingHorse) return;
     const reason = rejectReason.trim() || t('adminDefaultRejectReason');
+    setSubmittingReject(true);
     try {
-      await apiService.adminRejectListing(horseId, reason);
-      await refreshAdminData();
+      await apiService.adminRejectListing(rejectingHorse.id, reason);
       cancelRejectEditor();
+      await refreshAdminData();
       toast.show(t('adminListingRejected'), { type: 'success' });
     } catch (err) {
       toast.show(extractApiErrorMessage(err, t('adminActionFailed')), { type: 'error' });
+    } finally {
+      setSubmittingReject(false);
     }
   };
 
@@ -710,6 +741,11 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
       >
         <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.primary} />
         <Text style={styles.moderationBtnText}>{t('adminModeration')}</Text>
+        {nonHorsePendingCounts.total > 0 && (
+          <View style={styles.moderationBadge}>
+            <Text style={styles.moderationBadgeText}>{nonHorsePendingCounts.total}</Text>
+          </View>
+        )}
         <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
       </TouchableOpacity>
 
@@ -739,73 +775,91 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
       ) : (
         <>
           {activeTab === 'pending' && (
-            <FlatList
-              data={pendingListings}
-              keyExtractor={(horse) => String(horse.id)}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
-              initialNumToRender={5}
-              maxToRenderPerBatch={8}
-              windowSize={8}
-              removeClippedSubviews
-              ListEmptyComponent={<Text style={[styles.emptyText, isRTL && styles.textRTL]}>{t('adminNoPending')}</Text>}
-              ListFooterComponent={pendingListFooter}
-              renderItem={({ item: horse }) => (
-                <View style={styles.block}>
-                  <HorseCard
-                    horse={horse}
-                    onPress={() => navigation.navigate('AdminEditHorse', { horse })}
-                    onFavorite={() => {}}
-                    isFavorited={false}
-                  />
-                  <View style={[styles.secondaryActionRow, isRTL && styles.rowRTL]}>
-                    <TouchableOpacity
-                      style={styles.secondaryActionBtn}
-                      onPress={() => navigation.navigate('HorseDetail', { horse })}
-                    >
-                      <Text style={styles.secondaryActionText}>{t('viewDetails')}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={[styles.actionRow, isRTL && styles.rowRTL]}>
-                    <TouchableOpacity style={styles.approveBtn} onPress={() => handleApprove(horse.id)}>
-                      <Ionicons name="checkmark-circle-outline" size={18} color={COLORS.white} />
-                      <Text style={styles.approveText}>{t('approve')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.rejectBtn} onPress={() => openRejectEditor(horse.id)}>
-                      <Ionicons name="close-circle-outline" size={18} color={COLORS.white} />
-                      <Text style={styles.rejectText}>{t('reject')}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {renderReviewMeta(horse.id)}
-                  {rejectingHorseId === horse.id && (
-                    <View style={styles.rejectEditorCard}>
-                      <Text style={[styles.rejectEditorLabel, isRTL && styles.textRTL]}>
-                        {t('adminRejectReason')}
-                      </Text>
-                      <TextInput
-                        style={[styles.rejectEditorInput, isRTL && styles.textRTL]}
-                        value={rejectReason}
-                        onChangeText={setRejectReason}
-                        placeholder={t('adminRejectReasonPlaceholder')}
-                        placeholderTextColor={COLORS.textLight}
-                        multiline
-                        textAlignVertical="top"
-                        textAlign={isRTL ? 'right' : 'left'}
-                      />
-                      <View style={[styles.rejectEditorActions, isRTL && styles.rowRTL]}>
-                        <TouchableOpacity style={styles.rejectSubmitBtn} onPress={() => handleRejectSubmit(horse.id)}>
-                          <Text style={styles.rejectSubmitText}>{t('reject')}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.rejectCancelBtn} onPress={cancelRejectEditor}>
-                          <Text style={styles.rejectCancelText}>{t('cancel')}</Text>
-                        </TouchableOpacity>
-                      </View>
+            <>
+              <View style={[styles.pendingCategoryRow, isRTL && styles.rowRTL]}>
+                <TouchableOpacity
+                  style={[styles.pendingCategoryChip, styles.pendingCategoryChipActive]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.pendingCategoryChipText, styles.pendingCategoryChipTextActive]}>
+                    🐴 {t('adminPendingListings') || 'Horses'} ({pendingListingsTotal})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.pendingCategoryChip}
+                  onPress={() => navigation.navigate('AdminModerationDashboardScreen', { initialTab: 'equipment' })}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.pendingCategoryChipText}>
+                    📦 {t('equipmentModule')} ({nonHorsePendingCounts.equipment})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.pendingCategoryChip}
+                  onPress={() => navigation.navigate('AdminModerationDashboardScreen', { initialTab: 'rider_gear' })}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.pendingCategoryChipText}>
+                    🏇 {t('riderGearModule')} ({nonHorsePendingCounts.riderGear})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.pendingCategoryChip}
+                  onPress={() => navigation.navigate('AdminModerationDashboardScreen', { initialTab: 'services' })}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.pendingCategoryChipText}>
+                    ⚙️ {t('servicesModule')} ({nonHorsePendingCounts.services})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <FlatList
+                data={pendingListings}
+                keyExtractor={(horse) => String(horse.id)}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
+                initialNumToRender={5}
+                maxToRenderPerBatch={8}
+                windowSize={8}
+                removeClippedSubviews={false}
+                ListEmptyComponent={<Text style={[styles.emptyText, isRTL && styles.textRTL]}>{t('adminNoPending')}</Text>}
+                ListFooterComponent={pendingListFooter}
+                renderItem={({ item: horse }) => (
+                  <View style={styles.block}>
+                    <HorseCard
+                      horse={horse}
+                      onPress={() => navigation.navigate('AdminEditHorse', { horse })}
+                      onFavorite={() => {}}
+                      isFavorited={false}
+                    />
+                    <View style={[styles.secondaryActionRow, isRTL && styles.rowRTL]}>
+                      <TouchableOpacity
+                        style={styles.secondaryActionBtn}
+                        onPress={() => navigation.navigate('HorseDetail', { horse })}
+                      >
+                        <Text style={styles.secondaryActionText}>{t('viewDetails')}</Text>
+                      </TouchableOpacity>
                     </View>
-                  )}
-                </View>
-              )}
-            />
+                    <View style={[styles.actionRow, isRTL && styles.rowRTL]}>
+                      <TouchableOpacity style={styles.approveBtn} onPress={() => handleApprove(horse.id)}>
+                        <Ionicons name="checkmark-circle-outline" size={18} color={COLORS.white} />
+                        <Text style={styles.approveText}>{t('approve')}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.rejectBtn} onPress={() => openRejectEditor(horse)}>
+                        <Ionicons name="close-circle-outline" size={18} color={COLORS.white} />
+                        <Text style={styles.rejectText}>{t('reject')}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {renderReviewMeta(horse.id)}
+                  </View>
+                )}
+              />
+            </>
           )}
 
           {activeTab === 'listings' && (
@@ -1138,6 +1192,71 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
           )}
         </>
       )}
+
+      {/* Rejection Modal */}
+      <Modal
+        visible={showRejectModal}
+        animationType="fade"
+        transparent
+        onRequestClose={cancelRejectEditor}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <Text style={[styles.modalTitle, isRTL && styles.textRTL]}>{t('adminRejectTitle')}</Text>
+              {rejectingHorse && (
+                <Text style={[styles.modalSubtitle, isRTL && styles.textRTL]} numberOfLines={1}>
+                  {rejectingHorse.title}
+                </Text>
+              )}
+
+              <Text style={[styles.modalPrompt, isRTL && styles.textRTL]}>
+                {t('adminRejectConfirm')}
+              </Text>
+
+              <Text style={[styles.modalFieldLabel, isRTL && styles.textRTL]}>
+                {t('adminRejectReason')}
+              </Text>
+
+              <TextInput
+                style={[styles.modalTextInput, isRTL && styles.textRTL]}
+                placeholder={t('adminRejectReasonPlaceholder')}
+                placeholderTextColor={COLORS.textLight}
+                value={rejectReason}
+                onChangeText={setRejectReason}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+
+              <View style={[styles.modalActionsRow, isRTL && styles.rowRTL]}>
+                <TouchableOpacity
+                  style={[styles.modalActionBtn, styles.modalCancelBtn]}
+                  onPress={cancelRejectEditor}
+                  disabled={submittingReject}
+                >
+                  <Text style={styles.modalCancelBtnText}>{t('cancel')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalActionBtn, styles.modalRejectBtn]}
+                  onPress={handleRejectSubmit}
+                  disabled={submittingReject}
+                >
+                  {submittingReject ? (
+                    <ActivityIndicator color={COLORS.white} size="small" />
+                  ) : (
+                    <Text style={styles.modalRejectBtnText}>{t('reject')}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -1706,6 +1825,139 @@ const styles = StyleSheet.create({
     ...FONTS.bodySmall,
     color: COLORS.white,
     fontWeight: '700',
+  },
+  moderationBadge: {
+    backgroundColor: COLORS.error,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.xs,
+  },
+  moderationBadgeText: {
+    ...FONTS.caption,
+    color: COLORS.white,
+    fontWeight: '800',
+    fontSize: 11,
+  },
+  pendingCategoryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    marginBottom: SPACING.xs,
+  },
+  pendingCategoryChip: {
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.inputBg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  pendingCategoryChipActive: {
+    backgroundColor: COLORS.primaryLight + '20',
+    borderColor: COLORS.primary,
+  },
+  pendingCategoryChipText: {
+    ...FONTS.caption,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  pendingCategoryChipTextActive: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    padding: SPACING.lg,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    ...SHADOWS.card,
+  },
+  modalTitle: {
+    ...FONTS.h3,
+    color: COLORS.error,
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    ...FONTS.body,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  modalPrompt: {
+    ...FONTS.caption,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.md,
+  },
+  modalFieldLabel: {
+    ...FONTS.caption,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    marginBottom: 6,
+  },
+  modalTextInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.inputBg,
+    ...FONTS.bodySmall,
+    color: COLORS.text,
+    minHeight: 88,
+    marginBottom: SPACING.md,
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    justifyContent: 'flex-end',
+  },
+  modalActionBtn: {
+    flex: 1,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelBtn: {
+    backgroundColor: COLORS.inputBg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalCancelBtnText: {
+    ...FONTS.bodySmall,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+  },
+  modalRejectBtn: {
+    backgroundColor: COLORS.error,
+  },
+  modalRejectBtnText: {
+    ...FONTS.bodySmall,
+    fontWeight: '700',
+    color: COLORS.white,
   },
   rowRTL: {
     flexDirection: 'row-reverse',

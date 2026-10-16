@@ -55,7 +55,7 @@ export default function ProfileScreen({ navigation }) {
         apiService.getHorses({ owner_id: user.id, skip: 0, limit: 100 }),
         apiService.getEquipmentList({ owner_id: user.id, skip: 0, limit: 100 }),
         apiService.getRiderGearList({ owner_id: user.id, skip: 0, limit: 100 }),
-        apiService.getServicesList({ owner_id: user.id, skip: 0, limit: 100 }),
+        apiService.getServicesList({ provider_id: user.id, skip: 0, limit: 100 }),
       ]);
 
       const horses = (horsesRes.data.horses || horsesRes.data.items || horsesRes.data || []).map(
@@ -596,6 +596,16 @@ export default function ProfileScreen({ navigation }) {
                     <Text style={styles.genericCardTitle} numberOfLines={2}>
                       {item.title}
                     </Text>
+                    {item.status === 'rejected' && !!item.rejection_reason && (
+                      <View style={styles.rejectionReasonBox}>
+                        <Text style={styles.rejectionReasonLabel}>
+                          {t('adminRejectReason') || 'Rejection Reason'}
+                        </Text>
+                        <Text style={styles.rejectionReasonText} numberOfLines={2}>
+                          {item.rejection_reason}
+                        </Text>
+                      </View>
+                    )}
                     <Text style={styles.genericCardPrice}>
                       {item.price ? `${item.price.toLocaleString()} AED` : 'POA'}
                     </Text>
@@ -1100,5 +1110,23 @@ const styles = StyleSheet.create({
   inputRTL: {
     textAlign: 'right',
     writingDirection: 'rtl',
+  },
+  rejectionReasonBox: {
+    backgroundColor: COLORS.error + '10',
+    borderWidth: 1,
+    borderColor: COLORS.error + '30',
+    borderRadius: RADIUS.sm,
+    padding: SPACING.xs + 2,
+    marginVertical: SPACING.xs,
+  },
+  rejectionReasonLabel: {
+    ...FONTS.caption,
+    color: COLORS.error,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  rejectionReasonText: {
+    ...FONTS.bodySmall,
+    color: COLORS.text,
   },
 });

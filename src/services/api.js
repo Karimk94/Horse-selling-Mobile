@@ -1,6 +1,9 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_BASE_URL } from '../config/api';
+import { API_BASE_URL, resolveMediaUrl } from '../config/api';
+
+export { resolveMediaUrl };
+
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -153,6 +156,33 @@ function shouldHandleUnauthorized(error) {
   return !AUTH_EXCLUDED_PATHS.some((path) => requestUrl.includes(path));
 }
 
+function normalizeMediaPayload(data) {
+  if (!data || typeof data !== 'object') {
+    return typeof data === 'string' ? resolveMediaUrl(data) : data;
+  }
+  if (Array.isArray(data)) {
+    return data.map(normalizeMediaPayload);
+  }
+  const copy = { ...data };
+  for (const key of Object.keys(copy)) {
+    const val = copy[key];
+    if (typeof val === 'string') {
+      if (
+        key.includes('url') ||
+        key.includes('image') ||
+        key.includes('photo') ||
+        key.includes('cert') ||
+        val.includes('/uploads/')
+      ) {
+        copy[key] = resolveMediaUrl(val);
+      }
+    } else if (val && typeof val === 'object') {
+      copy[key] = normalizeMediaPayload(val);
+    }
+  }
+  return copy;
+}
+
 api.interceptors.response.use(
   (response) => {
     recordAdminRequestTelemetry(response.config, {
@@ -160,6 +190,10 @@ api.interceptors.response.use(
       canceled: false,
       errorMessage: null,
     });
+
+    if (response?.data) {
+      response.data = normalizeMediaPayload(response.data);
+    }
 
     return response;
   },
@@ -572,6 +606,9 @@ export const deleteEquipment = (id) =>
 export const adminGetPendingEquipment = (skip = 0, limit = 20) =>
   api.get('/api/v1/admin/equipment/pending', { params: { skip, limit } });
 
+export const adminGetRejectedEquipment = (skip = 0, limit = 20) =>
+  api.get('/api/v1/admin/equipment/rejected', { params: { skip, limit } });
+
 export const adminApproveEquipment = (id) =>
   api.post(`/api/v1/admin/equipment/${id}/approve`);
 
@@ -596,6 +633,10 @@ export const deleteRiderGear = (id) =>
 
 export const adminGetPendingRiderGear = (skip = 0, limit = 20) =>
   api.get('/api/v1/admin/rider-gear/pending', { params: { skip, limit } });
+
+export const adminGetRejectedRiderGear = (skip = 0, limit = 20) =>
+  api.get('/api/v1/admin/rider-gear/rejected', { params: { skip, limit } });
+
 
 export const adminApproveRiderGear = (id) =>
   api.post(`/api/v1/admin/rider-gear/${id}/approve`);
@@ -627,6 +668,10 @@ export const getServiceInquiries = (serviceId) =>
 
 export const adminGetPendingServices = (skip = 0, limit = 20) =>
   api.get('/api/v1/admin/services/pending', { params: { skip, limit } });
+
+export const adminGetRejectedServices = (skip = 0, limit = 20) =>
+  api.get('/api/v1/admin/services/rejected', { params: { skip, limit } });
+
 
 export const adminApproveService = (id) =>
   api.post(`/api/v1/admin/services/${id}/approve`);

@@ -130,6 +130,22 @@ export default function EquipmentDetailScreen({ route, navigation }) {
 
         {/* Content Details */}
         <View style={styles.body}>
+          {item.status === 'rejected' && (
+            <View style={styles.rejectionBanner}>
+              <View style={[styles.rejectionBannerHeader, isRTL && styles.rowRTL]}>
+                <Ionicons name="alert-circle" size={18} color="#dc2626" />
+                <Text style={styles.rejectionBannerTitle}>
+                  {isArabic ? 'تم رفض هذا الإعلان' : 'Listing Rejected'}
+                </Text>
+              </View>
+              {item.rejection_reason && (
+                <Text style={[styles.rejectionBannerReason, isRTL && styles.textRTL]}>
+                  {isArabic ? `السبب: ${item.rejection_reason}` : `Reason: ${item.rejection_reason}`}
+                </Text>
+              )}
+            </View>
+          )}
+
           {categoryName && (
             <View style={styles.categoryBadge}>
               <Text style={styles.categoryText}>{categoryName}</Text>
@@ -429,5 +445,35 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
     marginLeft: 8,
+  },
+  rejectionBanner: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  rejectionBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  rejectionBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#dc2626',
+  },
+  rejectionBannerReason: {
+    fontSize: 13,
+    color: '#7f1d1d',
+    lineHeight: 18,
+  },
+  rowRTL: {
+    flexDirection: 'row-reverse',
+  },
+  textRTL: {
+    textAlign: 'right',
   },
 });
