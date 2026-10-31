@@ -28,7 +28,11 @@ function isAdminRequestUrl(url = '') {
 }
 
 function isCanceledRequestError(error) {
-  return axios.isCancel(error) || error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError';
+  return (
+    (typeof axios.isCancel === 'function' && axios.isCancel(error)) ||
+    error?.code === 'ERR_CANCELED' ||
+    error?.name === 'CanceledError'
+  );
 }
 
 function pushAdminRequestTelemetry(entry) {

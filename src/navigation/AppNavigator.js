@@ -1,13 +1,15 @@
 import React from 'react';
-import { View, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Platform, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS, SHADOWS, FONTS } from '../config/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, SHADOWS, FONTS, RADIUS, SPACING } from '../config/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { navigationRef } from './navigationService';
+import BrandLogo from '../components/BrandLogo';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
@@ -89,6 +91,12 @@ function FavoritesStack() {
         component={HorseDetailScreen}
         options={{ animation: 'slide_from_right' }}
       />
+      <Stack.Screen name="EquipmentListScreen" component={EquipmentListScreen} />
+      <Stack.Screen name="EquipmentDetailScreen" component={EquipmentDetailScreen} />
+      <Stack.Screen name="RiderGearListScreen" component={RiderGearListScreen} />
+      <Stack.Screen name="RiderGearDetailScreen" component={RiderGearDetailScreen} />
+      <Stack.Screen name="ServiceListScreen" component={ServiceListScreen} />
+      <Stack.Screen name="ServiceDetailScreen" component={ServiceDetailScreen} />
     </Stack.Navigator>
   );
 }
@@ -142,24 +150,36 @@ function AdminStack() {
 }
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const isAdmin = user?.role === 'admin';
+
+  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 8);
+  const tabHeight = (Platform.OS === 'ios' ? 58 : 56) + bottomPadding;
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarButton: (props) => (
+          <TouchableOpacity
+            {...props}
+            testID={`tab-${route.name.toLowerCase()}`}
+            activeOpacity={0.8}
+          />
+        ),
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
           switch (route.name) {
             case 'Browse':
-              iconName = focused ? 'search' : 'search-outline';
+              iconName = focused ? 'compass' : 'compass-outline';
               break;
             case 'Stable':
-              iconName = focused ? 'star' : 'star-outline';
+              iconName = focused ? 'bookmark' : 'bookmark-outline';
               break;
             case 'Sell':
-              iconName = focused ? 'add-circle' : 'add-circle-outline';
+              iconName = 'add';
               break;
             case 'Profile':
               iconName = focused ? 'person' : 'person-outline';
@@ -170,26 +190,39 @@ function MainTabs() {
             default:
               iconName = 'ellipse-outline';
           }
-          if (route.name === 'Admin') {
-            const adminColor = focused ? COLORS.warning : '#C08A2E';
-            return <Ionicons name={iconName} size={24} color={adminColor} />;
+
+          if (route.name === 'Sell') {
+            return (
+              <View style={styles.sellButtonContainer}>
+                <View style={[styles.sellButton, focused && styles.sellButtonFocused]}>
+                  <Ionicons name="add" size={26} color={COLORS.white} />
+                </View>
+              </View>
+            );
           }
-          return <Ionicons name={iconName} size={route.name === 'Sell' ? 28 : 24} color={color} />;
+
+          if (route.name === 'Admin') {
+            const adminColor = focused ? COLORS.accentDark : '#9C7733';
+            return <Ionicons name={iconName} size={23} color={adminColor} />;
+          }
+
+          return <Ionicons name={iconName} size={23} color={color} />;
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textLight,
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '600',
+          fontWeight: '700',
           marginTop: -2,
         },
         tabBarStyle: {
           backgroundColor: COLORS.surface,
-          borderTopWidth: 0,
-          height: Platform.OS === 'ios' ? 88 : 64,
+          borderTopWidth: 1,
+          borderTopColor: COLORS.borderLight,
+          height: tabHeight,
           paddingTop: 8,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
-          ...SHADOWS.tabBar,
+          paddingBottom: bottomPadding,
+          ...SHADOWS.card,
         },
         tabBarHideOnKeyboard: true,
       })}
@@ -205,11 +238,18 @@ function MainTabs() {
 
 export default function AppNavigator() {
   const { loading } = useAuth();
+  const { language } = useLanguage();
+  const isArabic = language === 'ar';
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+      <View testID="app-loading-screen" style={styles.loading}>
+        <BrandLogo
+          title="SteedMarket"
+          subtitle={isArabic ? 'سوق الفروسية الأول في الخليج' : 'Gulf Equestrian Marketplace'}
+          iconSize={54}
+        />
+        <ActivityIndicator size="large" color={COLORS.primary} style={styles.loadingSpinner} />
       </View>
     );
   }
@@ -242,5 +282,29 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: SPACING.xl,
+  },
+  loadingSpinner: {
+    marginTop: SPACING.xl,
+  },
+  sellButtonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -14,
+  },
+  sellButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.primary,
+    borderWidth: 2,
+    borderColor: COLORS.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.medium,
+  },
+  sellButtonFocused: {
+    borderColor: COLORS.white,
+    backgroundColor: '#1E6B49',
   },
 });

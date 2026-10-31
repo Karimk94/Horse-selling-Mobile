@@ -8,6 +8,7 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
@@ -20,7 +21,10 @@ const CARD_WIDTH = width - SPACING.md * 2;
 const IMAGE_HEIGHT = 220;
 
 export default function HorseCard({ horse, onPress, onFavorite, isFavorited }) {
-  const { t } = useLanguage();
+  const langContext = useLanguage?.() || {};
+  const t = langContext.t || ((k) => k);
+  const isRTL = !!langContext.isRTL;
+
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const heartScale = useRef(new Animated.Value(1)).current;
   const imageListRef = useRef(null);
@@ -81,16 +85,33 @@ export default function HorseCard({ horse, onPress, onFavorite, isFavorited }) {
   };
 
   const displayPrice =
-    horse.discount_price != null ? horse.discount_price : horse.price;
-  const hasDiscount = horse.discount_price != null && horse.discount_price < horse.price;
+    horse?.discount_price != null ? horse.discount_price : horse?.price;
+  const hasDiscount = horse?.discount_price != null && horse.discount_price < horse.price;
+  const hasVideo = Boolean(horse?.video_url || horse?.has_video);
   const statusLabel =
-    horse.status === 'pending_review'
+    horse?.status === 'pending_review'
       ? t('pending')
-      : horse.status === 'rejected'
+      : horse?.status === 'rejected'
       ? t('rejected')
-      : horse.status === 'sold'
+      : horse?.status === 'sold'
       ? t('sold')
-      : horse.status;
+      : horse?.status;
+
+  const handleQuickInquiry = (e) => {
+    e?.stopPropagation?.();
+    const isArabic = isRTL;
+    const horseTitle = horse?.title || 'Horse Listing';
+    const priceStr = displayPrice != null ? `${displayPrice.toLocaleString()} AED` : '';
+    const text = isArabic
+      ? `مرحباً وسيط ستيد ماركت، أود الاستفسار مباشرة عن الخيل "${horseTitle}" ${priceStr ? `(السعر: ${priceStr})` : ''}`
+      : `Hello SteedMarket Concierge, I would like to inquire directly about "${horseTitle}" ${priceStr ? `(Price: ${priceStr})` : ''}`;
+    try {
+      const res = Linking.openURL(`https://wa.me/971500000000?text=${encodeURIComponent(text)}`);
+      if (res && typeof res.catch === 'function') {
+        res.catch(() => {});
+      }
+    } catch (err) {}
+  };
 
   return (
     <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
@@ -132,47 +153,89 @@ export default function HorseCard({ horse, onPress, onFavorite, isFavorited }) {
             </View>
           )}
 
-          {/* Price Badge */}
-          <View style={styles.priceContainer}>
+          {/* Top Badges Row: Status & Vet Checked */}
+          <View
+            style={[
+              styles.topBadgesRow,
+              isRTL
+                ? { right: SPACING.sm, left: undefined, flexDirection: 'row-reverse' }
+                : { left: SPACING.sm },
+            ]}
+          >
+            {horse?.status && horse.status !== 'approved' && (
+              <View
+                style={[
+                  styles.statusBadge,
+                  horse.status === 'rejected' && styles.rejectedBadge,
+                  horse.status === 'sold' && styles.soldBadge,
+                ]}
+              >
+                <Text style={styles.statusText}>{statusLabel}</Text>
+              </View>
+            )}
+
+            {horse?.vet_check_available && (
+              <View style={[styles.vetBadge, isRTL && styles.rowRTL]}>
+                <View style={styles.vetPulseDot} />
+                <Ionicons name="shield-checkmark" size={12} color={COLORS.vetVerifiedText} />
+                <Text style={styles.vetBadgeText}>{t('vetChecked')}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Top Right/Left: Favorite & Video indicator */}
+          <View
+            style={[
+              styles.topRightRow,
+              isRTL
+                ? { left: SPACING.sm, right: undefined, flexDirection: 'row-reverse' }
+                : { right: SPACING.sm },
+            ]}
+          >
+            {hasVideo && (
+              <View style={[styles.videoBadge, isRTL && styles.rowRTL]}>
+                <Ionicons name="play" size={10} color={COLORS.white} />
+                <Text style={styles.videoBadgeText}>{t('hasVideo')}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              testID="horse-card-favorite-btn"
+              style={styles.favoriteBtn}
+              onPress={handleFavorite}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Favorite"
+            >
+              <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                <Ionicons
+                  name={isFavorited ? 'heart' : 'heart-outline'}
+                  size={22}
+                  color={isFavorited ? COLORS.favorite : COLORS.white}
+                />
+              </Animated.View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Price Container */}
+          <View
+            style={[
+              styles.priceContainer,
+              isRTL
+                ? { right: SPACING.sm, left: undefined, flexDirection: 'row-reverse' }
+                : { left: SPACING.sm },
+            ]}
+          >
             {hasDiscount && (
               <Text style={styles.originalPrice}>
-                ${horse.price?.toLocaleString()}
+                {horse?.price?.toLocaleString()} {t('currencyAed')}
               </Text>
             )}
             <Text style={styles.price}>
-              ${displayPrice?.toLocaleString() ?? t('poa')}
+              {displayPrice != null
+                ? `${displayPrice.toLocaleString()} ${t('currencyAed')}`
+                : t('poa')}
             </Text>
           </View>
-
-          {/* Favorite Button */}
-          <TouchableOpacity
-            style={styles.favoriteBtn}
-            onPress={handleFavorite}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-              <Ionicons
-                name={isFavorited ? 'heart' : 'heart-outline'}
-                size={24}
-                color={isFavorited ? COLORS.favorite : COLORS.white}
-              />
-            </Animated.View>
-          </TouchableOpacity>
-
-          {/* Status Badge */}
-          {horse.status && horse.status !== 'approved' && (
-            <View
-              style={[
-                styles.statusBadge,
-                horse.status === 'rejected' && styles.rejectedBadge,
-                horse.status === 'sold' && styles.soldBadge,
-              ]}
-            >
-              <Text style={styles.statusText}>
-                {statusLabel}
-              </Text>
-            </View>
-          )}
         </View>
 
         <TouchableOpacity
@@ -182,66 +245,114 @@ export default function HorseCard({ horse, onPress, onFavorite, isFavorited }) {
           onPress={() => onPress?.(horse)}
         >
           <View style={styles.details}>
-          <View style={styles.trustRow}>
-            <Text style={styles.trustLabel}>{t('trustScore')}</Text>
-            <View style={[styles.trustBadge, { borderColor: trust.color }]}> 
-              <Text style={[styles.trustBadgeText, { color: trust.color }]}>
-                {trust.score}% {t(trust.labelKey)}
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.title} numberOfLines={2}>
-            {horse.title}
-          </Text>
-
-          {horse.status === 'rejected' && !!horse.rejection_reason && (
-            <View style={styles.rejectionReasonBox}>
-              <Text style={styles.rejectionReasonLabel}>{t('rejectionReason')}</Text>
-              <Text style={styles.rejectionReasonText} numberOfLines={2}>
-                {horse.rejection_reason}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.statsRow}>
-            {horse.age != null && (
-              <View style={styles.stat}>
-                <Ionicons name="calendar-outline" size={14} color={COLORS.textSecondary} />
-                <Text style={styles.statText}>{horse.age} {t('yrs')}</Text>
+            <View style={[styles.trustRow, isRTL && styles.rowRTL]}>
+              <View style={[styles.trustLeftGroup, isRTL && styles.rowRTL]}>
+                <Text style={[styles.trustLabel, isRTL && styles.textRTL]}>{t('trustScore')}</Text>
+                <View style={[styles.trustBadge, { borderColor: trust.color }]}>
+                  <Text style={[styles.trustBadgeText, { color: trust.color }]}>
+                    {trust.score}% {t(trust.labelKey)}
+                  </Text>
+                </View>
               </View>
-            )}
-            {horse.height != null && (
-              <View style={styles.stat}>
-                <Ionicons name="resize-outline" size={14} color={COLORS.textSecondary} />
-                <Text style={styles.statText}>{horse.height}{t('hh')}</Text>
-              </View>
-            )}
-            {horse.gender && (
-              <View style={styles.stat}>
-                <Ionicons
-                  name={horse.gender === 'mare' ? 'female' : 'male'}
-                  size={14}
-                  color={COLORS.textSecondary}
-                />
-                <Text style={styles.statText}>
-                  {horse.gender === 'mare' ? t('genderMare') : horse.gender === 'gelding' ? t('genderGelding') : t('genderStallion')}
+
+              {horse?.owner?.is_verified && (
+                <View style={[styles.verifiedSellerChip, isRTL && styles.rowRTL]}>
+                  <Ionicons name="checkmark-circle" size={13} color={COLORS.success} />
+                  <Text style={styles.verifiedSellerText}>{t('verifiedSellerBadge')}</Text>
+                </View>
+              )}
+            </View>
+
+            <Text style={[styles.title, isRTL && styles.textRTL]} numberOfLines={2}>
+              {horse?.title}
+            </Text>
+
+            {/* Pedigree Teaser */}
+            {(horse?.sire || horse?.dam) && (
+              <View style={[styles.pedigreeRow, isRTL && styles.rowRTL]}>
+                <Ionicons name="git-branch-outline" size={13} color={COLORS.accentDark} />
+                <Text style={[styles.pedigreeText, isRTL && styles.textRTL]} numberOfLines={1}>
+                  {horse?.sire ? `${t('sire')}: ${horse.sire}` : ''}
+                  {horse?.sire && horse?.dam ? ' • ' : ''}
+                  {horse?.dam ? `${t('dam')}: ${horse.dam}` : ''}
                 </Text>
               </View>
             )}
-          </View>
 
-          <View style={styles.tagsRow}>
-            {horse.breed && (
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>{horse.breed}</Text>
+            {horse?.status === 'rejected' && !!horse?.rejection_reason && (
+              <View style={styles.rejectionReasonBox}>
+                <Text style={[styles.rejectionReasonLabel, isRTL && styles.textRTL]}>
+                  {t('rejectionReason')}
+                </Text>
+                <Text style={[styles.rejectionReasonText, isRTL && styles.textRTL]} numberOfLines={2}>
+                  {horse.rejection_reason}
+                </Text>
               </View>
             )}
-            {horse.discipline && (
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>{horse.discipline}</Text>
+
+            <View style={[styles.statsRow, isRTL && styles.rowRTL]}>
+              {horse?.age != null && (
+                <View style={[styles.stat, isRTL && styles.rowRTL]}>
+                  <Ionicons name="calendar-outline" size={14} color={COLORS.textSecondary} />
+                  <Text style={[styles.statText, isRTL && styles.textRTL]}>
+                    {horse.age} {t('yrs')}
+                  </Text>
+                </View>
+              )}
+              {horse?.height != null && (
+                <View style={[styles.stat, isRTL && styles.rowRTL]}>
+                  <Ionicons name="resize-outline" size={14} color={COLORS.textSecondary} />
+                  <Text style={[styles.statText, isRTL && styles.textRTL]}>
+                    {horse.height}{t('hh')}
+                  </Text>
+                </View>
+              )}
+              {horse?.gender && (
+                <View style={[styles.stat, isRTL && styles.rowRTL]}>
+                  <Ionicons
+                    name={horse.gender === 'mare' ? 'female' : 'male'}
+                    size={14}
+                    color={COLORS.textSecondary}
+                  />
+                  <Text style={[styles.statText, isRTL && styles.textRTL]}>
+                    {horse.gender === 'mare'
+                      ? t('genderMare')
+                      : horse.gender === 'gelding'
+                      ? t('genderGelding')
+                      : t('genderStallion')}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Footer with Tags and 1-Tap WhatsApp Concierge Inquiry Button */}
+            <View style={[styles.cardFooterRow, isRTL && styles.rowRTL]}>
+              <View style={[styles.tagsRow, isRTL && styles.rowRTL, { flex: 1 }]}>
+                {horse?.breed && (
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>{horse.breed}</Text>
+                  </View>
+                )}
+                {horse?.discipline && (
+                  <View style={[styles.tag, styles.disciplineTag]}>
+                    <Text style={[styles.tagText, styles.disciplineTagText]}>{horse.discipline}</Text>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
+
+              <TouchableOpacity
+                testID="horse-card-quick-inquiry-btn"
+                style={[styles.quickInquiryBtn, isRTL && styles.rowRTL]}
+                onPress={handleQuickInquiry}
+                activeOpacity={0.8}
+                accessibilityLabel="Quick WhatsApp Inquiry"
+              >
+                <Ionicons name="logo-whatsapp" size={13} color="#25D366" />
+                <Text style={styles.quickInquiryText}>
+                  {isRTL ? 'استفسار سريع' : 'Quick Inquiry'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </View>
@@ -317,25 +428,69 @@ const styles = StyleSheet.create({
     color: COLORS.accentLight,
     textDecorationLine: 'line-through',
   },
-  favoriteBtn: {
+  topBadgesRow: {
+    position: 'absolute',
+    top: SPACING.sm,
+    left: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  topRightRow: {
     position: 'absolute',
     top: SPACING.sm,
     right: SPACING.sm,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  videoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(15, 56, 38, 0.85)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: RADIUS.full,
-    width: 40,
-    height: 40,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  videoBadgeText: {
+    ...FONTS.caption,
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  vetBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.vetVerifiedBadge,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(21, 128, 61, 0.25)',
+  },
+  vetBadgeText: {
+    ...FONTS.caption,
+    color: COLORS.vetVerifiedText,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  favoriteBtn: {
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: RADIUS.full,
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
   statusBadge: {
-    position: 'absolute',
-    top: SPACING.sm,
-    left: SPACING.sm,
     backgroundColor: COLORS.warning,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.full,
   },
   rejectedBadge: {
     backgroundColor: COLORS.error,
@@ -347,6 +502,7 @@ const styles = StyleSheet.create({
     ...FONTS.caption,
     color: COLORS.white,
     fontSize: 10,
+    fontWeight: '700',
   },
   details: {
     padding: SPACING.md,
@@ -356,6 +512,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: SPACING.xs,
+  },
+  trustLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
   },
   trustLabel: {
     ...FONTS.caption,
@@ -374,10 +535,39 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 10,
   },
+  verifiedSellerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.successLight,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+  },
+  verifiedSellerText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.success,
+  },
   title: {
     ...FONTS.h3,
     color: COLORS.text,
+    marginTop: 2,
+    marginBottom: 4,
+    lineHeight: 22,
+  },
+  pedigreeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginBottom: SPACING.sm,
+  },
+  pedigreeText: {
+    fontSize: 12,
+    color: COLORS.accentDark,
+    fontStyle: 'italic',
+    fontWeight: '600',
+    flex: 1,
   },
   rejectionReasonBox: {
     backgroundColor: COLORS.error + '10',
@@ -410,6 +600,7 @@ const styles = StyleSheet.create({
   statText: {
     ...FONTS.bodySmall,
     color: COLORS.textSecondary,
+    fontWeight: '500',
   },
   tagsRow: {
     flexDirection: 'row',
@@ -431,4 +622,51 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
     fontWeight: '600',
   },
+  disciplineTag: {
+    backgroundColor: COLORS.badge,
+    borderColor: COLORS.accentLight,
+  },
+  disciplineTagText: {
+    color: COLORS.badgeText,
+    fontWeight: '700',
+  },
+  cardFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.xs,
+    marginTop: 2,
+  },
+  quickInquiryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#25D366' + '15',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: '#25D366' + '40',
+  },
+  quickInquiryText: {
+    ...FONTS.caption,
+    color: '#128C7E',
+    fontWeight: '700',
+    fontSize: 10,
+  },
+  vetPulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 2,
+  },
+  rowRTL: {
+    flexDirection: 'row-reverse',
+  },
+  textRTL: {
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
 });
+

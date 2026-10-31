@@ -205,4 +205,171 @@ describe('OffersScreen', () => {
       expect(Alert.alert).toHaveBeenCalledWith('success', 'horseMarkedSold');
     });
   });
+
+  it('populates counter amount using smart percentage calculation chips', async () => {
+    apiService.getMyOffers.mockResolvedValue({
+      data: { offers: [buildOffer({ amount: 10000 })], total: 1, has_more: false },
+    });
+
+    const screen = render(<OffersScreen navigation={navigation} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('sendCounter')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('sendCounter'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('counter-chip-plus10')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('counter-chip-plus10'));
+
+    expect(screen.getByPlaceholderText('counterAmount').props.value).toBe('11000');
+  });
+
+  it('renders WhatsApp consultation button for active offers', async () => {
+    apiService.getMyOffers.mockResolvedValue({
+      data: { offers: [buildOffer({ id: 'offer-wa-1', amount: 50000 })], total: 1, has_more: false },
+    });
+
+    const screen = render(<OffersScreen navigation={navigation} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('offer-whatsapp-button-offer-wa-1')).toBeTruthy();
+    });
+  });
+
+  it('navigates back when back button is pressed', async () => {
+    apiService.getMyOffers.mockResolvedValue({
+      data: { offers: [], total: 0, has_more: false },
+    });
+
+    const screen = render(<OffersScreen navigation={navigation} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('offers-back-button')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('offers-back-button'));
+    expect(navigation.goBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes offers when header refresh button is pressed', async () => {
+    apiService.getMyOffers.mockResolvedValue({
+      data: { offers: [], total: 0, has_more: false },
+    });
+
+    const screen = render(<OffersScreen navigation={navigation} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('offers-header-refresh-btn')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('offers-header-refresh-btn'));
+
+    await waitFor(() => {
+      expect(apiService.getMyOffers).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('renders 4 KPI telemetry cards and navigates to HomeMain from empty state browse button', async () => {
+    apiService.getMyOffers.mockResolvedValue({
+      data: { offers: [], total: 0, has_more: false },
+    });
+
+    const screen = render(<OffersScreen navigation={navigation} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('offers-summary-pending')).toBeTruthy();
+      expect(screen.getByTestId('offers-summary-countered')).toBeTruthy();
+      expect(screen.getByTestId('offers-summary-accepted')).toBeTruthy();
+      expect(screen.getByTestId('offers-summary-total')).toBeTruthy();
+      expect(screen.getByTestId('offers-empty-browse-btn')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('offers-empty-browse-btn'));
+    expect(navigation.navigate).toHaveBeenCalledWith('HomeMain');
+  });
+
+  it('filters by role and status using dedicated testID chips', async () => {
+    apiService.getMyOffers.mockResolvedValue({
+      data: { offers: [], total: 0, has_more: false },
+    });
+
+    const screen = render(<OffersScreen navigation={navigation} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('offers-role-buyer')).toBeTruthy();
+      expect(screen.getByTestId('offers-status-countered')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('offers-role-buyer'));
+
+    await waitFor(() => {
+      expect(apiService.getMyOffers).toHaveBeenLastCalledWith('buyer', null, 0, 20);
+    });
+
+    fireEvent.press(screen.getByTestId('offers-status-countered'));
+
+    await waitFor(() => {
+      expect(apiService.getMyOffers).toHaveBeenLastCalledWith('buyer', 'countered', 0, 20);
+    });
+  });
+
+  it('triggers escrow concierge consultation when header concierge button is pressed', async () => {
+    apiService.getMyOffers.mockResolvedValue({
+      data: { offers: [], total: 0, has_more: false },
+    });
+    const { Linking } = require('react-native');
+    jest.spyOn(Linking, 'openURL').mockImplementation(() => Promise.resolve());
+
+    const screen = render(<OffersScreen navigation={navigation} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('offers-header-concierge-btn')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('offers-header-concierge-btn'));
+    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/971500000000'));
+    Linking.openURL.mockRestore?.();
+  });
+
+  it('renders SteedMarket Verified Equine Escrow & Settlement Shield card and triggers WhatsApp consultation from shield button', async () => {
+    apiService.getMyOffers.mockResolvedValue({
+      data: { offers: [buildOffer({ id: 'offer-shield-1' })], total: 1, has_more: false },
+    });
+    const { Linking } = require('react-native');
+    jest.spyOn(Linking, 'openURL').mockImplementation(() => Promise.resolve());
+
+    const screen = render(<OffersScreen navigation={navigation} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('offers-settlement-shield')).toBeTruthy();
+      expect(screen.getByTestId('offers-escrow-concierge-btn')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('offers-escrow-concierge-btn'));
+    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/971500000000'));
+    Linking.openURL.mockRestore?.();
+  });
+
+  it('renders VIP cockpit accreditation badge and connects empty-state concierge hotline to WhatsApp', async () => {
+    apiService.getMyOffers.mockResolvedValue({
+      data: { offers: [], total: 0, has_more: false },
+    });
+    const { Linking } = require('react-native');
+    jest.spyOn(Linking, 'openURL').mockImplementation(() => Promise.resolve());
+
+    const screen = render(<OffersScreen navigation={navigation} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('offers-cockpit-vip-badge')).toBeTruthy();
+      expect(screen.getByTestId('offers-empty-concierge-btn')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('offers-empty-concierge-btn'));
+    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/971500000000'));
+    Linking.openURL.mockRestore?.();
+  });
 });

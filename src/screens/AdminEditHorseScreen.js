@@ -14,9 +14,11 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import BrandMark from '../components/BrandMark';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 import { useLanguage } from '../contexts/LanguageContext';
 import * as apiService from '../services/api';
@@ -24,10 +26,38 @@ import HORSE_BREEDS from '../data/horseBreeds';
 import { extractApiErrorMessage } from '../utils/apiErrors';
 import { useToast } from '../components/ToastProvider';
 
+const GENDERS = [
+  { id: 'stallion', labelKey: 'genderStallion', fallback: 'Stallion', icon: 'male' },
+  { id: 'mare', labelKey: 'genderMare', fallback: 'Mare', icon: 'female' },
+  { id: 'gelding', labelKey: 'genderGelding', fallback: 'Gelding', icon: 'male-outline' },
+];
+
+const POPULAR_DISCIPLINES = [
+  'Show Jumping',
+  'Dressage',
+  'Endurance',
+  'Flat Racing',
+  'Show Horse',
+  'Eventing',
+  'Polo',
+  'Leisure',
+];
+
+const UAE_EMIRATES = [
+  'Dubai',
+  'Abu Dhabi',
+  'Sharjah',
+  'Ajman',
+  'Al Ain',
+  'Ras Al Khaimah',
+  'Fujairah',
+];
+
 export default function AdminEditHorseScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
-  const { t, isRTL } = useLanguage();
-  const { horse } = route.params;
+  const { t, isRTL, language } = useLanguage();
+  const isArabic = language === 'ar';
+  const horse = route?.params?.horse || {};
 
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
@@ -45,11 +75,40 @@ export default function AdminEditHorseScreen({ route, navigation }) {
     price: horse?.price != null ? String(horse.price) : '',
     breed: horse?.breed || '',
     age: horse?.age != null ? String(horse.age) : '',
+    gender: horse?.gender || 'stallion',
     discipline: horse?.discipline || '',
     height: horse?.height != null ? String(horse.height) : '',
+    location_text: horse?.location_text || '',
     description: horse?.description || '',
+    vet_check_available: !!horse?.vet_check_available,
   });
   const toast = useToast();
+
+  const handleHorseRegistrarHotline = () => {
+    const isArabic = isRTL;
+    const text = isArabic
+      ? 'مرحباً، أود التواصل مع مسؤول سجل الخيل المعتمد بخصوص تعديل بيانات وسجل خيل.'
+      : 'Hello SteedMarket Equine Registrar, I need assistance regarding horse record moderation or pedigree updates.';
+    try {
+      const res = Linking.openURL(`https://wa.me/971500000000?text=${encodeURIComponent(text)}`);
+      if (res && typeof res.catch === 'function') {
+        res.catch(() => {});
+      }
+    } catch (e) {}
+  };
+
+  const handleRegistrarConsultation = () => {
+    const isArabic = isRTL;
+    const text = isArabic
+      ? 'مرحباً، أود استشارة مسجل السلالات والشهادات البيطرية لتوثيق فحص الخيل.'
+      : 'Hello SteedMarket Registrar, I need consultation regarding equine pedigree verification, microchip checks, or vet certificates.';
+    try {
+      const res = Linking.openURL(`https://wa.me/971500000000?text=${encodeURIComponent(text)}`);
+      if (res && typeof res.catch === 'function') {
+        res.catch(() => {});
+      }
+    } catch (e) {}
+  };
 
   const update = (key, value) => {
     setForm((p) => ({ ...p, [key]: value }));
@@ -103,9 +162,12 @@ export default function AdminEditHorseScreen({ route, navigation }) {
         price: Number(form.price),
         breed: form.breed.trim(),
         age: Number(form.age),
+        gender: form.gender,
         discipline: form.discipline.trim() || null,
         height: form.height.trim() ? Number(form.height) : null,
+        location_text: form.location_text.trim() || null,
         description: form.description.trim() || null,
+        vet_check_available: form.vet_check_available,
         image_urls: images,
       });
       toast.show(t('adminHorseUpdated'), { type: 'success' });
@@ -116,28 +178,6 @@ export default function AdminEditHorseScreen({ route, navigation }) {
       setSaving(false);
     }
   };
-
-  const renderInput = (key, label, options = {}) => (
-    <View style={styles.field}>
-      <Text style={[styles.label, isRTL && styles.textRTL]}>{label}</Text>
-      <TextInput
-        style={[
-          styles.input,
-          options.multiline && styles.inputMultiline,
-          errors[key] && styles.inputError,
-          isRTL && styles.inputRTL,
-        ]}
-        value={form[key]}
-        onChangeText={(v) => update(key, v)}
-        keyboardType={options.keyboardType || 'default'}
-        placeholderTextColor={COLORS.textLight}
-        multiline={!!options.multiline}
-        textAlignVertical={options.multiline ? 'top' : 'center'}
-        textAlign={isRTL ? 'right' : 'left'}
-      />
-      {errors[key] && <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors[key]}</Text>}
-    </View>
-  );
 
   const removeImageAtIndex = (indexToRemove) => {
     if (images.length <= 1) {
@@ -157,6 +197,12 @@ export default function AdminEditHorseScreen({ route, navigation }) {
     ]);
   };
 
+  const parsedPrice = Number(form.price);
+  const formattedPricePreview =
+    Number.isFinite(parsedPrice) && parsedPrice > 0
+      ? parsedPrice.toLocaleString() + ' AED'
+      : null;
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { paddingTop: insets.top }]}
@@ -164,25 +210,140 @@ export default function AdminEditHorseScreen({ route, navigation }) {
     >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
+      {/* Header */}
       <View style={[styles.header, isRTL && styles.rowRTL]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={22} color={COLORS.text} />
+        <View style={[styles.headerLeftWrap, isRTL && styles.rowRTL]}>
+          <TouchableOpacity
+            testID="admin-edit-horse-back-btn"
+            style={styles.backBtn}
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={22} color={COLORS.primary} />
+          </TouchableOpacity>
+          <View style={styles.brandIconWrap}>
+            <BrandMark size={28} />
+          </View>
+          <View style={styles.headerTextWrap}>
+            <View style={[styles.portalBadge, isRTL && styles.rowRTL]}>
+              <View style={styles.portalBadgeDot} />
+              <Text style={styles.portalBadgeText}>
+                {isRTL ? 'تعديل سجل وجواز الخيل المعتمد' : 'VIP EQUINE PASSPORT MODERATION'}
+              </Text>
+            </View>
+            <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('adminEditHorse')}</Text>
+            <Text style={[styles.headerSubtitle, isRTL && styles.textRTL]}>
+              {t('adminHorseStudioSubtitle')}
+            </Text>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          testID="admin-edit-horse-hotline-btn"
+          style={styles.headerHotlineBtn}
+          onPress={handleHorseRegistrarHotline}
+          activeOpacity={0.8}
+          accessibilityLabel="Equine Registrar WhatsApp Hotline"
+        >
+          <Ionicons name="logo-whatsapp" size={17} color="#25D366" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('adminEditHorse')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.field}>
-          <View style={[styles.photosHeaderRow, isRTL && styles.rowRTL]}>
-            <Text style={[styles.label, isRTL && styles.textRTL]}>{t('photos')}</Text>
-            <Text style={[styles.photoCount, isRTL && styles.textRTL]}>{images.length}</Text>
+        {/* Equine Pedigree & Escrow Integrity Shield Card */}
+        <View testID="admin-horse-integrity-shield" style={styles.integrityShieldCard}>
+          <View style={[styles.integrityShieldHeader, isRTL && styles.rowRTL]}>
+            <View style={styles.integrityShieldIconWrap}>
+              <Ionicons name="shield-checkmark" size={18} color={COLORS.accentDark} />
+            </View>
+            <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+              <View style={[styles.integrityBadgeRow, isRTL && styles.rowRTL]}>
+                <View style={styles.integrityPulseDot} />
+                <Text style={styles.integrityBadgeText}>
+                  {isRTL ? 'معايير توثيق الجياد الخليجية' : 'OFFICIAL EQUINE REGISTRATION PROTOCOL'}
+                </Text>
+              </View>
+              <Text style={[styles.integrityShieldTitle, isRTL && styles.textRTL]}>
+                {isRTL ? 'ميثاق التحقق من أنساب الخيل والسلامة البيطرية' : 'Pedigree Verification & Soundness Charter'}
+              </Text>
+              <Text style={[styles.integrityShieldDesc, isRTL && styles.textRTL]}>
+                {isRTL
+                  ? 'تدقيق معتمد لبيانات السلالة، العمر، الارتفاع، والشهادات البيطرية لضمان حقوق المشتري والبائع'
+                  : 'Official oversight of WAHO bloodlines, biometric attributes, and veterinary inspection reports'}
+              </Text>
+            </View>
           </View>
+
+          {/* 3 Equine Verification Pillars */}
+          <View style={styles.integrityPillars}>
+            <View style={[styles.integrityPillarItem, isRTL && styles.rowRTL]}>
+              <View style={styles.integrityPillarIcon}>
+                <Ionicons name="ribbon" size={13} color={COLORS.accentDark} />
+              </View>
+              <Text style={[styles.integrityPillarText, isRTL && styles.textRTL]}>
+                {isRTL ? 'توثيق أنساب WAHO والمايكروتشيب المعتمد' : 'WAHO & Official Stud Book Pedigree Record'}
+              </Text>
+            </View>
+            <View style={[styles.integrityPillarItem, isRTL && styles.rowRTL]}>
+              <View style={styles.integrityPillarIcon}>
+                <Ionicons name="medkit" size={13} color={COLORS.accentDark} />
+              </View>
+              <Text style={[styles.integrityPillarText, isRTL && styles.textRTL]}>
+                {isRTL ? 'شهادة فحص سريري وبيطري موثقة' : 'Verified Veterinary Soundness & Inspection Certificate'}
+              </Text>
+            </View>
+            <View style={[styles.integrityPillarItem, isRTL && styles.rowRTL]}>
+              <View style={styles.integrityPillarIcon}>
+                <Ionicons name="shield" size={13} color={COLORS.accentDark} />
+              </View>
+              <Text style={[styles.integrityPillarText, isRTL && styles.textRTL]}>
+                {isRTL ? 'التزام عقود البيع وحساب الضمان البنكي' : 'Certified Bilateral Escrow Custody Compliance'}
+              </Text>
+            </View>
+          </View>
+
+          {/* 1-Tap WhatsApp Registrar consultation button */}
+          <TouchableOpacity
+            testID="admin-horse-registrar-consult-btn"
+            style={[styles.integrityConsultBtn, isRTL && styles.rowRTL]}
+            onPress={handleRegistrarConsultation}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="logo-whatsapp" size={15} color="#25D366" />
+            <Text style={styles.integrityConsultBtnText}>
+              {isRTL ? 'استشارة مسجل السلالات والشهادات البيطرية' : 'Consult Equine Registrar & Stud Officer'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Media Gallery Section */}
+        <View style={styles.sectionCard}>
+          <View style={[styles.photosHeaderRow, isRTL && styles.rowRTL]}>
+            <View style={[styles.sectionTitleWrap, isRTL && styles.rowRTL]}>
+              <Ionicons name="camera-outline" size={18} color={COLORS.primary} />
+              <Text style={[styles.sectionTitle, isRTL && styles.textRTL]}>{t('photos')}</Text>
+            </View>
+            <View style={styles.photoCountBadge}>
+              <Text style={styles.photoCountText}>{images.length}/10</Text>
+            </View>
+          </View>
+
           {images.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photosRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.photosRow, isRTL && styles.rowRTL]}
+            >
               {images.map((imageUrl, index) => (
                 <View key={`${imageUrl}-${index}`} style={styles.photoThumbWrap}>
                   <Image source={{ uri: imageUrl }} style={styles.photoThumb} />
+                  {index === 0 && (
+                    <View style={styles.coverBadge}>
+                      <Text style={styles.coverBadgeText}>{isArabic ? 'الرئيسية' : 'Cover'}</Text>
+                    </View>
+                  )}
                   <TouchableOpacity
+                    testID={`delete-photo-${index}`}
                     style={styles.photoDeleteBtn}
                     onPress={() => removeImageAtIndex(index)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -195,39 +356,354 @@ export default function AdminEditHorseScreen({ route, navigation }) {
           ) : (
             <Text style={[styles.errorText, isRTL && styles.textRTL]}>{t('imagesRequired')}</Text>
           )}
+          {errors.images && (
+            <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors.images}</Text>
+          )}
         </View>
 
-        {renderInput('title', t('title'))}
-        {renderInput('price', t('priceLabel'), { keyboardType: 'numeric' })}
-        <View style={styles.field}>
-          <Text style={[styles.label, isRTL && styles.textRTL]}>{t('breed')}</Text>
+        {/* Identity & Pedigree Section */}
+        <View style={styles.sectionCard}>
+          <View style={[styles.sectionHeaderRow, isRTL && styles.rowRTL]}>
+            <Ionicons name="ribbon-outline" size={18} color={COLORS.primary} />
+            <Text style={[styles.sectionTitle, isRTL && styles.textRTL]}>
+              {t('adminHorseIdentitySection')}
+            </Text>
+          </View>
+
+          {/* Title */}
+          <View style={styles.field}>
+            <Text style={[styles.label, isRTL && styles.textRTL]}>{t('title')}</Text>
+            <TextInput
+              testID="input-horse-title"
+              style={[styles.input, errors.title && styles.inputError, isRTL && styles.inputRTL]}
+              value={form.title}
+              onChangeText={(v) => update('title', v)}
+              placeholder={t('titlePlaceholder')}
+              placeholderTextColor={COLORS.textLight}
+              textAlign={isRTL ? 'right' : 'left'}
+            />
+            {errors.title && (
+              <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors.title}</Text>
+            )}
+          </View>
+
+          {/* Breed Selector */}
+          <View style={styles.field}>
+            <Text style={[styles.label, isRTL && styles.textRTL]}>{t('breed')}</Text>
+            <TouchableOpacity
+              testID="select-breed-btn"
+              style={[styles.selectorButton, errors.breed && styles.inputError, isRTL && styles.rowRTL]}
+              onPress={() => setBreedModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.selectorButtonText,
+                  !form.breed && styles.selectorPlaceholder,
+                  isRTL && styles.textRTL,
+                ]}
+              >
+                {form.breed || t('selectBreed')}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={COLORS.accent} />
+            </TouchableOpacity>
+            {errors.breed && (
+              <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors.breed}</Text>
+            )}
+          </View>
+
+          {/* Gender Selector Chips */}
+          <View style={styles.field}>
+            <Text style={[styles.label, isRTL && styles.textRTL]}>{t('adminHorseGenderSection')}</Text>
+            <View style={[styles.chipsRow, isRTL && styles.rowRTL]}>
+              {GENDERS.map((g) => {
+                const isSelected = form.gender === g.id;
+                const label = t(g.labelKey) || g.fallback;
+                return (
+                  <TouchableOpacity
+                    key={g.id}
+                    testID={`gender-chip-${g.id}`}
+                    style={[styles.genderChip, isSelected && styles.genderChipActive]}
+                    onPress={() => update('gender', g.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={g.icon}
+                      size={16}
+                      color={isSelected ? COLORS.primary : COLORS.textSecondary}
+                    />
+                    <Text
+                      style={[styles.genderChipText, isSelected && styles.genderChipTextActive]}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Age & Height Row */}
+          <View style={[styles.twoColRow, isRTL && styles.rowRTL]}>
+            <View style={styles.col}>
+              <Text style={[styles.label, isRTL && styles.textRTL]}>{t('age')}</Text>
+              <TextInput
+                testID="input-horse-age"
+                style={[styles.input, errors.age && styles.inputError, isRTL && styles.inputRTL]}
+                value={form.age}
+                onChangeText={(v) => update('age', v)}
+                keyboardType="numeric"
+                placeholder="4"
+                placeholderTextColor={COLORS.textLight}
+                textAlign={isRTL ? 'right' : 'left'}
+              />
+              {errors.age && (
+                <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors.age}</Text>
+              )}
+            </View>
+
+            <View style={styles.col}>
+              <Text style={[styles.label, isRTL && styles.textRTL]}>{t('height')}</Text>
+              <TextInput
+                testID="input-horse-height"
+                style={[styles.input, errors.height && styles.inputError, isRTL && styles.inputRTL]}
+                value={form.height}
+                onChangeText={(v) => update('height', v)}
+                keyboardType="numeric"
+                placeholder="1.58"
+                placeholderTextColor={COLORS.textLight}
+                textAlign={isRTL ? 'right' : 'left'}
+              />
+              {errors.height && (
+                <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors.height}</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Discipline with Quick Chips */}
+          <View style={styles.field}>
+            <Text style={[styles.label, isRTL && styles.textRTL]}>{t('discipline')}</Text>
+            <TextInput
+              testID="input-horse-discipline"
+              style={[styles.input, isRTL && styles.inputRTL]}
+              value={form.discipline}
+              onChangeText={(v) => update('discipline', v)}
+              placeholder={t('disciplinePlaceholder')}
+              placeholderTextColor={COLORS.textLight}
+              textAlign={isRTL ? 'right' : 'left'}
+            />
+
+            <Text style={[styles.subLabel, isRTL && styles.textRTL]}>
+              {t('adminHorseDisciplineQuick')}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.emiratesScrollRow, isRTL && styles.rowRTL]}
+            >
+              {POPULAR_DISCIPLINES.map((disc) => {
+                const isSelected = form.discipline.trim().toLowerCase() === disc.toLowerCase();
+                return (
+                  <TouchableOpacity
+                    key={disc}
+                    testID={`discipline-chip-${disc.toLowerCase().replace(/\s+/g, '-')}`}
+                    style={[styles.quickChip, isSelected && styles.quickChipActive]}
+                    onPress={() => update('discipline', disc)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.quickChipText, isSelected && styles.quickChipTextActive]}>
+                      {disc}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+
+        {/* Valuation & Asking Price Section */}
+        <View style={styles.sectionCard}>
+          <View style={[styles.sectionHeaderRow, isRTL && styles.rowRTL]}>
+            <Ionicons name="pricetag-outline" size={18} color={COLORS.primary} />
+            <Text style={[styles.sectionTitle, isRTL && styles.textRTL]}>
+              {t('adminHorsePricingSection')}
+            </Text>
+            {formattedPricePreview && (
+              <View style={styles.pricePreviewBadge}>
+                <Text style={styles.pricePreviewText}>{formattedPricePreview}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.field}>
+            <View style={[styles.priceInputWrapper, isRTL && styles.rowRTL]}>
+              <View style={styles.currencyPill}>
+                <Text style={styles.currencyPillText}>AED</Text>
+              </View>
+              <TextInput
+                testID="input-horse-price"
+                style={[
+                  styles.input,
+                  styles.priceInput,
+                  errors.price && styles.inputError,
+                  isRTL && styles.inputRTL,
+                ]}
+                value={form.price}
+                onChangeText={(v) => update('price', v)}
+                keyboardType="numeric"
+                placeholder="250000"
+                placeholderTextColor={COLORS.textLight}
+                textAlign={isRTL ? 'right' : 'left'}
+              />
+            </View>
+            {errors.price && (
+              <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors.price}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Stabling Location (Emirate) */}
+        <View style={styles.sectionCard}>
+          <View style={[styles.sectionHeaderRow, isRTL && styles.rowRTL]}>
+            <Ionicons name="location-outline" size={18} color={COLORS.primary} />
+            <Text style={[styles.sectionTitle, isRTL && styles.textRTL]}>
+              {t('adminHorseLocationSection')}
+            </Text>
+          </View>
+
+          <View style={styles.field}>
+            <TextInput
+              testID="input-horse-location"
+              style={[styles.input, isRTL && styles.inputRTL]}
+              value={form.location_text}
+              onChangeText={(v) => update('location_text', v)}
+              placeholder="Dubai Stables, UAE"
+              placeholderTextColor={COLORS.textLight}
+              textAlign={isRTL ? 'right' : 'left'}
+            />
+
+            <Text style={[styles.subLabel, isRTL && styles.textRTL]}>
+              {t('adminEmirateQuickSelect')}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.emiratesScrollRow, isRTL && styles.rowRTL]}
+            >
+              {UAE_EMIRATES.map((emirate) => {
+                const isSelected = form.location_text.trim().toLowerCase() === emirate.toLowerCase();
+                return (
+                  <TouchableOpacity
+                    key={emirate}
+                    testID={`emirate-chip-${emirate.toLowerCase().replace(/\s+/g, '-')}`}
+                    style={[styles.emirateChip, isSelected && styles.emirateChipActive]}
+                    onPress={() => update('location_text', emirate)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="location-sharp"
+                      size={12}
+                      color={isSelected ? COLORS.primary : COLORS.accent}
+                    />
+                    <Text
+                      style={[styles.emirateChipText, isSelected && styles.emirateChipTextActive]}
+                    >
+                      {emirate}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+
+        {/* Veterinary & Health Verification Trust Card */}
+        <View style={styles.sectionCard}>
           <TouchableOpacity
-            style={[styles.selectorButton, errors.breed && styles.inputError, isRTL && styles.rowRTL]}
-            onPress={() => setBreedModalVisible(true)}
+            testID="vet-check-toggle"
+            style={[styles.verifyCard, isRTL && styles.rowRTL]}
+            onPress={() => update('vet_check_available', !form.vet_check_available)}
+            activeOpacity={0.8}
           >
-            <Text
+            <View
               style={[
-                styles.selectorButtonText,
-                !form.breed && styles.selectorPlaceholder,
-                isRTL && styles.textRTL,
+                styles.verifyIconWrap,
+                form.vet_check_available ? styles.verifyIconWrapActive : styles.verifyIconWrapInactive,
               ]}
             >
-              {form.breed || t('selectBreed')}
-            </Text>
-            <Ionicons name="chevron-down" size={18} color={COLORS.textLight} />
-          </TouchableOpacity>
-          {errors.breed && <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errors.breed}</Text>}
-        </View>
-        {renderInput('age', t('age'), { keyboardType: 'numeric' })}
-        {renderInput('discipline', t('discipline'))}
-        {renderInput('height', t('height'), { keyboardType: 'numeric' })}
-        {renderInput('description', t('description'), { multiline: true })}
+              <Ionicons
+                name={form.vet_check_available ? 'shield-checkmark' : 'shield-outline'}
+                size={22}
+                color={form.vet_check_available ? COLORS.primary : COLORS.textLight}
+              />
+            </View>
 
-        <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>
-          {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.saveBtnText}>{t('save')}</Text>}
+            <View style={[styles.verifyTextWrap, isRTL && styles.verifyTextWrapRTL]}>
+              <Text style={[styles.verifyCardTitle, isRTL && styles.textRTL]}>
+                {t('adminHorseVetCardTitle')}
+              </Text>
+              <Text style={[styles.verifyCardDesc, isRTL && styles.textRTL]}>
+                {t('adminHorseVetCardDesc')}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.toggleSwitch,
+                form.vet_check_available ? styles.toggleSwitchActive : styles.toggleSwitchInactive,
+              ]}
+            >
+              <View
+                style={[
+                  styles.toggleThumb,
+                  form.vet_check_available ? styles.toggleThumbActive : styles.toggleThumbInactive,
+                ]}
+              />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Detailed Description */}
+        <View style={styles.sectionCard}>
+          <View style={[styles.sectionHeaderRow, isRTL && styles.rowRTL]}>
+            <Ionicons name="document-text-outline" size={18} color={COLORS.primary} />
+            <Text style={[styles.sectionTitle, isRTL && styles.textRTL]}>{t('description')}</Text>
+          </View>
+
+          <TextInput
+            testID="input-horse-description"
+            style={[styles.input, styles.inputMultiline, isRTL && styles.inputRTL]}
+            value={form.description}
+            onChangeText={(v) => update('description', v)}
+            multiline
+            numberOfLines={5}
+            textAlignVertical="top"
+            placeholder={t('descriptionPlaceholder')}
+            placeholderTextColor={COLORS.textLight}
+            textAlign={isRTL ? 'right' : 'left'}
+          />
+        </View>
+
+        {/* Save Button */}
+        <TouchableOpacity
+          testID="admin-save-horse-btn"
+          style={styles.saveBtn}
+          onPress={save}
+          disabled={saving}
+          activeOpacity={0.85}
+        >
+          {saving ? (
+            <ActivityIndicator color={COLORS.white} />
+          ) : (
+            <View style={[styles.saveBtnInner, isRTL && styles.rowRTL]}>
+              <Ionicons name="checkmark-sharp" size={20} color={COLORS.white} />
+              <Text style={styles.saveBtnText}>{t('adminSaveHorseChanges')}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
+      {/* Breed Search Modal */}
       <Modal
         visible={breedModalVisible}
         animationType="slide"
@@ -238,14 +714,19 @@ export default function AdminEditHorseScreen({ route, navigation }) {
           <View style={styles.modalCard}>
             <View style={[styles.modalHeader, isRTL && styles.rowRTL]}>
               <Text style={[styles.modalTitle, isRTL && styles.textRTL]}>{t('selectBreed')}</Text>
-              <TouchableOpacity onPress={() => setBreedModalVisible(false)}>
+              <TouchableOpacity
+                testID="close-breed-modal-btn"
+                onPress={() => setBreedModalVisible(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Ionicons name="close" size={22} color={COLORS.text} />
               </TouchableOpacity>
             </View>
 
             <View style={[styles.searchWrap, isRTL && styles.rowRTL]}>
-              <Ionicons name="search-outline" size={18} color={COLORS.textLight} />
+              <Ionicons name="search-outline" size={18} color={COLORS.accent} />
               <TextInput
+                testID="breed-search-input"
                 style={[styles.searchInput, isRTL && styles.inputRTL]}
                 value={breedSearchQuery}
                 onChangeText={setBreedSearchQuery}
@@ -261,7 +742,8 @@ export default function AdminEditHorseScreen({ route, navigation }) {
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.breedItem}
+                  testID={`breed-item-${item}`}
+                  style={[styles.breedItem, isRTL && styles.rowRTL]}
                   onPress={() => {
                     update('breed', item);
                     setBreedModalVisible(false);
@@ -269,6 +751,9 @@ export default function AdminEditHorseScreen({ route, navigation }) {
                   }}
                 >
                   <Text style={[styles.breedItemText, isRTL && styles.textRTL]}>{item}</Text>
+                  {form.breed === item && (
+                    <Ionicons name="checkmark" size={18} color={COLORS.primary} />
+                  )}
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
@@ -283,38 +768,252 @@ export default function AdminEditHorseScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    justifyContent: 'space-between',
     paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.sm,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+    gap: SPACING.sm,
+    ...SHADOWS.soft,
   },
-  backBtn: {
+  headerLeftWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  brandIconWrap: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#FAF8F5',
+    borderWidth: 1.5,
+    borderColor: 'rgba(197, 160, 89, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
+    ...SHADOWS.card,
+  },
+  portalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(197, 160, 89, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+    alignSelf: 'flex-start',
+    marginBottom: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.28)',
+  },
+  portalBadgeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#10B981',
+    marginRight: 5,
+  },
+  portalBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: COLORS.accentDark,
+    letterSpacing: 0.5,
+  },
+  headerHotlineBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(37, 211, 102, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 211, 102, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  integrityShieldCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1.5,
+    borderColor: 'rgba(197, 160, 89, 0.3)',
+    ...SHADOWS.small,
+  },
+  integrityShieldHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  integrityShieldIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(197, 160, 89, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.3)',
+  },
+  integrityBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  integrityPulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 6,
+  },
+  integrityBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.accentDark,
+    letterSpacing: 0.5,
+  },
+  integrityShieldTitle: {
+    ...FONTS.h3,
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  integrityShieldDesc: {
+    ...FONTS.bodySmall,
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    lineHeight: 16,
+  },
+  integrityPillars: {
+    gap: 6,
+    paddingVertical: SPACING.xs,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: COLORS.borderLight,
+    marginVertical: SPACING.xs,
+  },
+  integrityPillarItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  integrityPillarIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(197, 160, 89, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  integrityPillarText: {
+    ...FONTS.caption,
+    fontSize: 11,
+    color: COLORS.text,
+    fontWeight: '600',
+    flex: 1,
+  },
+  integrityConsultBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(37, 211, 102, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 211, 102, 0.25)',
+    paddingVertical: 9,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginTop: SPACING.xs,
+  },
+  integrityConsultBtnText: {
+    ...FONTS.button,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTextWrap: {
+    flex: 1,
+  },
+  headerTitle: {
+    ...FONTS.h2,
+    color: COLORS.primary,
+  },
+  headerSubtitle: {
+    ...FONTS.caption,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  content: {
+    padding: SPACING.md,
+    paddingBottom: SPACING.xxl,
+  },
+  sectionCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     ...SHADOWS.soft,
   },
-  headerTitle: { ...FONTS.h2, color: COLORS.primary },
-  content: { padding: SPACING.md, paddingBottom: SPACING.xxl },
-  field: { marginBottom: SPACING.md },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.md,
+    paddingBottom: SPACING.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  sectionTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  sectionTitle: {
+    ...FONTS.h3,
+    color: COLORS.primary,
+    fontSize: 15,
+  },
   photosHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
   },
-  photoCount: {
+  photoCountBadge: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.accent + '20',
+  },
+  photoCountText: {
     ...FONTS.caption,
-    color: COLORS.textSecondary,
-    fontWeight: '700',
+    color: COLORS.accentDark,
+    fontWeight: '800',
   },
   photosRow: {
     gap: SPACING.sm,
+    paddingVertical: 4,
   },
   photoThumbWrap: {
     width: 96,
@@ -322,11 +1021,30 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     overflow: 'hidden',
     backgroundColor: COLORS.borderLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   photoThumb: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  coverBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+  },
+  coverBadgeText: {
+    ...FONTS.caption,
+    color: COLORS.white,
+    fontSize: 9,
+    fontWeight: '800',
   },
   photoDeleteBtn: {
     position: 'absolute',
@@ -339,9 +1057,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  label: { ...FONTS.caption, color: COLORS.textSecondary, marginBottom: SPACING.xs },
+  field: {
+    marginBottom: SPACING.md,
+  },
+  label: {
+    ...FONTS.caption,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+    fontWeight: '600',
+  },
+  subLabel: {
+    ...FONTS.caption,
+    color: COLORS.textLight,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+    fontSize: 11,
+  },
   input: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.inputBg,
     borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -350,8 +1083,19 @@ const styles = StyleSheet.create({
     ...FONTS.body,
     color: COLORS.text,
   },
+  inputMultiline: {
+    minHeight: 110,
+  },
+  inputError: {
+    borderColor: COLORS.error,
+  },
+  errorText: {
+    ...FONTS.caption,
+    color: COLORS.error,
+    marginTop: SPACING.xs,
+  },
   selectorButton: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.inputBg,
     borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -369,27 +1113,214 @@ const styles = StyleSheet.create({
   selectorPlaceholder: {
     color: COLORS.textLight,
   },
-  inputMultiline: { minHeight: 110 },
-  inputError: {
-    borderColor: COLORS.error,
+  chipsRow: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
   },
-  errorText: {
+  genderChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  genderChipActive: {
+    backgroundColor: COLORS.primary + '15',
+    borderColor: COLORS.primary,
+  },
+  genderChipText: {
     ...FONTS.caption,
-    color: COLORS.error,
-    marginTop: SPACING.xs,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  genderChipTextActive: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  twoColRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  col: {
+    flex: 1,
+  },
+  emiratesScrollRow: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    paddingVertical: 2,
+  },
+  emirateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  emirateChipActive: {
+    backgroundColor: COLORS.primary + '15',
+    borderColor: COLORS.primary,
+  },
+  emirateChipText: {
+    ...FONTS.caption,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  emirateChipTextActive: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  quickChip: {
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  quickChipActive: {
+    backgroundColor: COLORS.accent + '25',
+    borderColor: COLORS.accentDark,
+  },
+  quickChipText: {
+    ...FONTS.caption,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  quickChipTextActive: {
+    color: COLORS.accentDark,
+    fontWeight: '700',
+  },
+  pricePreviewBadge: {
+    marginLeft: 'auto',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.accent + '20',
+  },
+  pricePreviewText: {
+    ...FONTS.caption,
+    color: COLORS.accentDark,
+    fontWeight: '800',
+  },
+  priceInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  currencyPill: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary + '15',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  currencyPillText: {
+    ...FONTS.caption,
+    color: COLORS.primary,
+    fontWeight: '800',
+  },
+  priceInput: {
+    flex: 1,
+    fontWeight: '700',
+  },
+  verifyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  verifyIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifyIconWrapActive: {
+    backgroundColor: COLORS.primary + '15',
+  },
+  verifyIconWrapInactive: {
+    backgroundColor: COLORS.borderLight,
+  },
+  verifyTextWrap: {
+    flex: 1,
+  },
+  verifyTextWrapRTL: {
+    alignItems: 'flex-end',
+  },
+  verifyCardTitle: {
+    ...FONTS.body,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  verifyCardDesc: {
+    ...FONTS.caption,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  toggleSwitch: {
+    width: 46,
+    height: 26,
+    borderRadius: 13,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  toggleSwitchActive: {
+    backgroundColor: COLORS.primary,
+  },
+  toggleSwitchInactive: {
+    backgroundColor: COLORS.border,
+  },
+  toggleThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: COLORS.white,
+    ...SHADOWS.soft,
+  },
+  toggleThumbActive: {
+    alignSelf: 'flex-end',
+  },
+  toggleThumbInactive: {
+    alignSelf: 'flex-start',
   },
   saveBtn: {
     backgroundColor: COLORS.primary,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.md,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: SPACING.md,
-    marginTop: SPACING.sm,
+    marginTop: SPACING.xs,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    ...SHADOWS.medium,
   },
-  saveBtnText: { ...FONTS.button, color: COLORS.white },
+  saveBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  saveBtnText: {
+    ...FONTS.button,
+    color: COLORS.white,
+    fontWeight: '700',
+    fontSize: 16,
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   modalCard: {
@@ -398,6 +1329,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
     padding: SPACING.md,
+    ...SHADOWS.card,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -415,6 +1347,8 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     backgroundColor: COLORS.inputBg,
     borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     paddingHorizontal: SPACING.sm,
     marginBottom: SPACING.sm,
   },
@@ -425,7 +1359,10 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
   },
   breedItem: {
-    paddingVertical: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.sm + 2,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderLight,
   },
@@ -439,7 +1376,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: SPACING.md,
   },
-  rowRTL: { flexDirection: 'row-reverse' },
-  textRTL: { textAlign: 'right', writingDirection: 'rtl' },
-  inputRTL: { textAlign: 'right', writingDirection: 'rtl' },
+  rowRTL: {
+    flexDirection: 'row-reverse',
+  },
+  textRTL: {
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  inputRTL: {
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
 });

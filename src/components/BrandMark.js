@@ -8,7 +8,12 @@ export default function BrandMark({ size = 32, color, tintColor, style, resizeMo
   // If an explicit light/white tint is desired (e.g. active tab), use it; otherwise show natural logo colors
   const activeTint =
     tintColor ||
-    (color && color !== COLORS.primary && color !== '#1B4332' && color !== '#1b4332'
+    (color &&
+      color !== COLORS.primary &&
+      color !== '#0F3826' &&
+      color !== '#0f3826' &&
+      color !== '#1B4332' &&
+      color !== '#1b4332'
       ? color
       : undefined);
 

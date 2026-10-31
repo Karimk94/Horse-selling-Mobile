@@ -9,14 +9,55 @@ import {
   TextInput,
   RefreshControl,
   ActivityIndicator,
+  ScrollView,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getEquipmentList } from '../services/api';
 import { getCurrentDeviceLocation } from '../services/locationService';
 import CategoryPicker from '../components/CategoryPicker';
+import BrandMark from '../components/BrandMark';
 import { useLanguage } from '../contexts/LanguageContext';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
+
+const EMIRATES = [
+  { id: 'all', labelKey: 'allEmirates', value: null },
+  { id: 'dubai', labelKey: 'emirateDubai', value: 'Dubai' },
+  { id: 'abu_dhabi', labelKey: 'emirateAbuDhabi', value: 'Abu Dhabi' },
+  { id: 'sharjah', labelKey: 'emirateSharjah', value: 'Sharjah' },
+  { id: 'ajman', labelKey: 'emirateAjman', value: 'Ajman' },
+  { id: 'al_ain', labelKey: 'emirateAlAin', value: 'Al Ain' },
+  { id: 'ras_al_khaimah', labelKey: 'emirateRasAlKhaimah', value: 'Ras Al Khaimah' },
+  { id: 'fujairah', labelKey: 'emirateFujairah', value: 'Fujairah' },
+  { id: 'umm_al_quwain', labelKey: 'emirateUmmAlQuwain', value: 'Umm Al Quwain' },
+];
+
+const EMIRATE_LABELS = {
+  allEmirates: { en: 'All Emirates', ar: 'جميع الإمارات' },
+  emirateDubai: { en: 'Dubai', ar: 'دبي' },
+  emirateAbuDhabi: { en: 'Abu Dhabi', ar: 'أبوظبي' },
+  emirateSharjah: { en: 'Sharjah', ar: 'الشارقة' },
+  emirateAjman: { en: 'Ajman', ar: 'عجمان' },
+  emirateAlAin: { en: 'Al Ain', ar: 'العين' },
+  emirateRasAlKhaimah: { en: 'Ras Al Khaimah', ar: 'رأس الخيمة' },
+  emirateFujairah: { en: 'Fujairah', ar: 'الفجيرة' },
+  emirateUmmAlQuwain: { en: 'Umm Al Quwain', ar: 'أم القيوين' },
+};
+
+const SUGGESTIONS = ['Saddle', 'Prestige', 'Bridle', 'Devoucoux', 'Pads', 'Boots'];
+
+const SORT_OPTIONS = [
+  { id: 'newest', labelKey: 'sortNewest' },
+  { id: 'price_asc', labelKey: 'sortPriceAsc' },
+  { id: 'price_desc', labelKey: 'sortPriceDesc' },
+];
+
+const CONDITIONS = [
+  { id: 'all', labelEn: 'All Tack', labelAr: 'الكل' },
+  { id: 'new', labelEn: 'Brand New', labelAr: 'جديد بالكامل' },
+  { id: 'used', labelEn: 'Pre-Owned', labelAr: 'مستعمل بحالة ممتازة' },
+];
 
 export default function EquipmentListScreen({ navigation, route }) {
   const { language, t, isRTL } = useLanguage();
@@ -30,10 +71,14 @@ export default function EquipmentListScreen({ navigation, route }) {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState(route?.params?.searchQuery || '');
-  const [selectedCategory, setSelectedCategory] = useState(null); // { slug, name_ar, name_en, id }
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [selectedEmirate, setSelectedEmirate] = useState(null);
+  const [selectedSort, setSelectedSort] = useState('newest');
+  const [showSortMenu, setShowSortMenu] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
-  const [selectedRadius, setSelectedRadius] = useState(null); // km or null
+  const [selectedRadius, setSelectedRadius] = useState(null);
+  const [selectedCondition, setSelectedCondition] = useState('all');
 
   const fetchItems = useCallback(
     async (reset = false) => {
@@ -50,11 +95,15 @@ export default function EquipmentListScreen({ navigation, route }) {
           limit: 20,
         };
 
-        if (searchQuery.trim()) {
-          params.q = searchQuery.trim();
+        const activeSearch = [searchQuery.trim(), selectedEmirate].filter(Boolean).join(' ');
+        if (activeSearch) {
+          params.q = activeSearch;
         }
         if (selectedCategory?.id) {
           params.category_id = selectedCategory.id;
+        }
+        if (selectedCondition !== 'all') {
+          params.condition = selectedCondition;
         }
         if (selectedRadius && userLocation) {
           params.lat = userLocation.latitude;
@@ -63,8 +112,25 @@ export default function EquipmentListScreen({ navigation, route }) {
         }
 
         const response = await getEquipmentList(params);
-        const fetched = response.data?.items || [];
-        const fetchedTotal = response.data?.total || 0;
+        let fetched = response?.data?.items || [];
+        const fetchedTotal = response?.data?.total || fetched.length;
+
+        // Client-side condition filter fallback if items have condition property
+        if (selectedCondition !== 'all') {
+          const conditionFiltered = fetched.filter(
+            (item) => !item.condition || item.condition === selectedCondition
+          );
+          if (conditionFiltered.length > 0 || fetched.length === 0) {
+            fetched = conditionFiltered;
+          }
+        }
+
+        // Client-side sort fallback if needed
+        if (selectedSort === 'price_asc') {
+          fetched = [...fetched].sort((a, b) => (a.price || 0) - (b.price || 0));
+        } else if (selectedSort === 'price_desc') {
+          fetched = [...fetched].sort((a, b) => (b.price || 0) - (a.price || 0));
+        }
 
         if (reset) {
           setItems(fetched);
@@ -82,12 +148,12 @@ export default function EquipmentListScreen({ navigation, route }) {
         setLoadingMore(false);
       }
     },
-    [skip, searchQuery, selectedCategory, selectedRadius, userLocation]
+    [skip, searchQuery, selectedEmirate, selectedCategory, selectedRadius, selectedSort, selectedCondition, userLocation]
   );
 
   useEffect(() => {
     fetchItems(true);
-  }, [searchQuery, selectedCategory, selectedRadius]);
+  }, [searchQuery, selectedEmirate, selectedCategory, selectedRadius, selectedSort, selectedCondition]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -104,7 +170,61 @@ export default function EquipmentListScreen({ navigation, route }) {
     const loc = await getCurrentDeviceLocation();
     if (loc) {
       setUserLocation(loc);
-      setSelectedRadius(25); // Default 25km radius when GPS enabled
+      setSelectedRadius(25);
+    }
+  };
+
+  const handleClearAllFilters = () => {
+    setSearchQuery('');
+    setSelectedEmirate(null);
+    setSelectedCategory(null);
+    setSelectedRadius(null);
+    setSelectedSort('newest');
+    setSelectedCondition('all');
+  };
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery.trim()) count++;
+    if (selectedEmirate) count++;
+    if (selectedCategory) count++;
+    if (selectedRadius) count++;
+    if (selectedSort !== 'newest') count++;
+    if (selectedCondition !== 'all') count++;
+    return count;
+  }, [searchQuery, selectedEmirate, selectedCategory, selectedRadius, selectedSort, selectedCondition]);
+
+  const hasActiveFilters = activeFiltersCount > 0;
+
+  const handleHeaderTackHotline = () => {
+    const query = searchQuery ? `"${searchQuery}"` : '';
+    const text = isArabic
+      ? `مرحباً ستيد ماركت، أود استشارة أخصائي مستلزمات الخيل بخصوص ${query || 'سروج ومعدات فروسية معتمدة'}.`
+      : `Hello SteedMarket Tack Specialist, I would like expert advice on sourcing certified equestrian equipment ${query ? `matching ${query}` : ''}.`;
+    const waUrl = `https://wa.me/971500000000?text=${encodeURIComponent(text)}`;
+    try {
+      const res = Linking.openURL(waUrl);
+      if (res && typeof res.catch === 'function') {
+        res.catch(() => {});
+      }
+    } catch (e) {}
+  };
+
+  const handleWhatsAppConcierge = async () => {
+    const query = searchQuery ? `"${searchQuery}"` : (isArabic ? 'مستلزمات عامة' : 'General equestrian tack');
+    const text = isArabic
+      ? `مرحباً ستيد ماركت، أبحث عن مستلزمات خيل ومعدات فروسية بمواصفات معينة: ${query}`
+      : `Hello SteedMarket, I am looking for equestrian equipment/tack with specific criteria: ${query}`;
+    const url = `whatsapp://send?text=${encodeURIComponent(text)}`;
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        await Linking.openURL(`https://wa.me/971500000000?text=${encodeURIComponent(text)}`);
+      }
+    } catch (e) {
+      console.warn('Cannot open WhatsApp:', e);
     }
   };
 
@@ -114,38 +234,63 @@ export default function EquipmentListScreen({ navigation, route }) {
 
     return (
       <TouchableOpacity
+        testID={`equipment-card-${item.id}`}
         style={styles.card}
-        activeOpacity={0.85}
+        activeOpacity={0.9}
         onPress={() => navigation.navigate('EquipmentDetailScreen', { equipmentId: item.id })}
       >
-        <Image source={{ uri: mainImage }} style={styles.cardImage} resizeMode="cover" />
+        <View style={styles.imageWrapper}>
+          <Image source={{ uri: mainImage }} style={styles.cardImage} resizeMode="cover" />
+
+          {/* Top badges */}
+          <View style={[styles.cardBadgesRow, isRTL && styles.rowRTL]}>
+            {categoryName ? (
+              <View style={styles.categoryBadge}>
+                <Text style={styles.categoryBadgeText}>{categoryName}</Text>
+              </View>
+            ) : null}
+
+            {item.condition ? (
+              <View style={styles.conditionBadge}>
+                <Text style={styles.conditionBadgeText}>
+                  {item.condition === 'new'
+                    ? (isArabic ? 'جديد' : 'New')
+                    : (isArabic ? 'مستعمل' : 'Used')}
+                </Text>
+              </View>
+            ) : null}
+
+            {item.brand ? (
+              <View style={styles.brandBadge}>
+                <Ionicons name="pricetag" size={11} color={COLORS.accent} />
+                <Text style={styles.brandBadgeText}>{item.brand}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
 
         <View style={styles.cardBody}>
-          {categoryName && (
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryBadgeText}>{categoryName}</Text>
-            </View>
-          )}
-
-          <Text style={styles.cardTitle} numberOfLines={2}>
+          <Text style={[styles.cardTitle, isRTL && styles.textRTL]} numberOfLines={2}>
             {item.title}
           </Text>
 
-          {item.brand && <Text style={styles.cardBrand}>{item.brand}</Text>}
+          {item.brand ? (
+            <Text style={[styles.cardBrand, isRTL && styles.textRTL]}>{item.brand}</Text>
+          ) : null}
 
-          <View style={styles.cardFooter}>
+          <View style={[styles.cardFooter, isRTL && styles.rowRTL]}>
             <Text style={styles.cardPrice}>
               {item.price ? `${item.price.toLocaleString()} AED` : 'POA'}
             </Text>
 
-            {item.location_text && (
-              <View style={styles.locationContainer}>
-                <Ionicons name="location-outline" size={14} color="#64748b" />
+            {item.location_text ? (
+              <View style={[styles.locationContainer, isRTL && styles.rowRTL]}>
+                <Ionicons name="location-sharp" size={13} color={COLORS.primary} />
                 <Text style={styles.locationText} numberOfLines={1}>
                   {item.location_text}
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
         </View>
       </TouchableOpacity>
@@ -154,43 +299,180 @@ export default function EquipmentListScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Search & Header */}
+      {/* Header Bar */}
       <View style={styles.headerContainer}>
-        <View style={styles.topBar}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <View style={[styles.topBar, isRTL && styles.rowRTL]}>
+          <TouchableOpacity
+            testID="equipment-back-button"
+            style={styles.backBtn}
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Go Back"
+          >
             <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color={COLORS.text} />
           </TouchableOpacity>
-          <Text style={styles.topBarTitle}>{isArabic ? 'مستلزمات الخيل' : 'Horse Equipment'}</Text>
+
+          <View style={[styles.brandIconWrapper, isRTL && { marginRight: 0, marginLeft: 10 }]}>
+            <BrandMark size={28} />
+          </View>
+
+          <View style={styles.titleColumn}>
+            <View testID="equipment-vip-badge" style={[styles.vipBadge, isRTL && styles.rowRTL]}>
+              <Ionicons name="ribbon" size={11} color={COLORS.accentDark} />
+              <View style={styles.vipPulseDot} />
+              <Text style={styles.vipBadgeText}>
+                {isArabic ? 'سوق المستلزمات المعتمد' : 'VERIFIED TACK MARKET'}
+              </Text>
+            </View>
+            <Text style={[styles.topBarTitle, isRTL && styles.textRTL]}>
+              {isArabic ? 'مستلزمات الخيل' : 'Horse Equipment'}
+            </Text>
+            <Text style={[styles.topBarSubtitle, isRTL && styles.textRTL]}>
+              {total} {t('totalAvailable') || (isArabic ? 'مستلزم معتمد متوفر' : 'available')}
+            </Text>
+          </View>
+
+          <View style={[styles.headerActionsGroup, isRTL && styles.rowRTL]}>
+            <TouchableOpacity
+              testID="equipment-header-hotline-btn"
+              style={styles.headerHotlineBtn}
+              onPress={handleHeaderTackHotline}
+              activeOpacity={0.8}
+              accessibilityLabel="Tack Specialist WhatsApp Hotline"
+            >
+              <Ionicons name="logo-whatsapp" size={17} color="#25D366" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              testID="equipment-header-create-button"
+              style={[styles.headerCreateBtn, isRTL && styles.rowRTL]}
+              onPress={() => navigation.navigate('CreateEquipmentScreen')}
+            >
+              <Ionicons name="add-circle" size={18} color={COLORS.accent} />
+              <Text style={styles.headerCreateText}>
+                {isArabic ? 'إضافة' : 'Post Tack'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={20} color="#64748b" />
+
+        {/* Search Bar */}
+        <View style={[styles.searchBar, isRTL && styles.rowRTL]}>
+          <TouchableOpacity
+            testID="equipment-search-submit-btn"
+            onPress={() => fetchItems(true)}
+            style={styles.searchSubmitBtn}
+          >
+            <Ionicons name="search" size={18} color={COLORS.primary} />
+          </TouchableOpacity>
           <TextInput
-            style={[styles.searchInput, { textAlign: isArabic ? 'right' : 'left' }]}
-            placeholder={isArabic ? 'ابحث في مستلزمات الخيل...' : 'Search equipment & supplies...'}
+            testID="equipment-search-input"
+            style={[styles.searchInput, isRTL && styles.inputRTL]}
+            placeholder={
+              t('searchEquipmentPlaceholder') ||
+              (isArabic ? 'ابحث في مستلزمات الخيل...' : 'Search equipment & supplies...')
+            }
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor="#94a3b8"
+            onSubmitEditing={() => fetchItems(true)}
+            placeholderTextColor={COLORS.textLight}
+            textAlign={isRTL ? 'right' : 'left'}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color="#94a3b8" />
+            <TouchableOpacity
+              testID="equipment-search-clear-btn"
+              onPress={() => setSearchQuery('')}
+              style={styles.clearSearchBtn}
+            >
+              <Ionicons name="close-circle" size={18} color={COLORS.textLight} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Filter Chips Bar */}
-        <View style={styles.filterChipsRow}>
-          {/* Category Filter Button */}
+        {/* Regional Emirates Filter Bar */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.emiratesScroll, isRTL && styles.rowRTL]}
+        >
+          {EMIRATES.map((em) => {
+            const isSelected = (!selectedEmirate && em.id === 'all') || selectedEmirate === em.value;
+            const label = EMIRATE_LABELS[em.labelKey]
+              ? (isArabic ? EMIRATE_LABELS[em.labelKey].ar : EMIRATE_LABELS[em.labelKey].en)
+              : t(em.labelKey);
+            return (
+              <TouchableOpacity
+                key={em.id}
+                testID={`equipment-emirate-${em.id}`}
+                style={[styles.emirateChip, isSelected && styles.activeEmirateChip]}
+                onPress={() => setSelectedEmirate(em.value)}
+              >
+                {isSelected && (
+                  <Ionicons
+                    name="location-sharp"
+                    size={12}
+                    color={COLORS.white}
+                    style={{ marginRight: isRTL ? 0 : 4, marginLeft: isRTL ? 4 : 0 }}
+                  />
+                )}
+                <Text style={[styles.emirateChipText, isSelected && styles.activeEmirateChipText]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Condition Filter Bar */}
+        <View style={[styles.conditionBar, isRTL && styles.rowRTL]}>
+          {CONDITIONS.map((cond) => {
+            const isSelected = selectedCondition === cond.id;
+            return (
+              <TouchableOpacity
+                key={cond.id}
+                testID={`equipment-condition-${cond.id}`}
+                style={[styles.conditionChip, isSelected && styles.activeConditionChip]}
+                onPress={() => setSelectedCondition(cond.id)}
+              >
+                {cond.id === 'new' && (
+                  <Ionicons
+                    name="sparkles"
+                    size={12}
+                    color={isSelected ? COLORS.white : COLORS.accent}
+                    style={{ marginRight: isRTL ? 0 : 4, marginLeft: isRTL ? 4 : 0 }}
+                  />
+                )}
+                {cond.id === 'used' && (
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={12}
+                    color={isSelected ? COLORS.white : COLORS.primary}
+                    style={{ marginRight: isRTL ? 0 : 4, marginLeft: isRTL ? 4 : 0 }}
+                  />
+                )}
+                <Text style={[styles.conditionChipText, isSelected && styles.activeConditionChipText]}>
+                  {isArabic ? cond.labelAr : cond.labelEn}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Discovery Action Bar (Category, GPS, Sort) */}
+        <View style={[styles.filterActionsRow, isRTL && styles.rowRTL]}>
+          {/* Category Trigger */}
           <TouchableOpacity
-            style={[styles.chipButton, selectedCategory && styles.activeChipButton]}
+            style={[styles.actionPill, selectedCategory && styles.activeActionPill]}
             onPress={() => setShowCategoryPicker(true)}
           >
             <Ionicons
               name="options-outline"
-              size={16}
-              color={selectedCategory ? '#ffffff' : '#2563eb'}
+              size={15}
+              color={selectedCategory ? COLORS.white : COLORS.primary}
             />
-            <Text style={[styles.chipButtonText, selectedCategory && styles.activeChipText]}>
+            <Text
+              style={[styles.actionPillText, selectedCategory && styles.activeActionPillText]}
+              numberOfLines={1}
+            >
               {selectedCategory
                 ? isArabic
                   ? selectedCategory.name_ar
@@ -198,15 +480,15 @@ export default function EquipmentListScreen({ navigation, route }) {
                 : t('allCategories')}
             </Text>
             {selectedCategory && (
-              <TouchableOpacity onPress={() => setSelectedCategory(null)} style={styles.chipClose}>
-                <Ionicons name="close" size={14} color="#ffffff" />
+              <TouchableOpacity onPress={() => setSelectedCategory(null)} style={styles.pillClose}>
+                <Ionicons name="close-circle" size={14} color={COLORS.white} />
               </TouchableOpacity>
             )}
           </TouchableOpacity>
 
-          {/* Location GPS Radius Button */}
+          {/* GPS Radius */}
           <TouchableOpacity
-            style={[styles.chipButton, selectedRadius && styles.activeChipButton]}
+            style={[styles.actionPill, selectedRadius && styles.activeActionPill]}
             onPress={() => {
               if (!userLocation) {
                 handleEnableLocation();
@@ -221,20 +503,106 @@ export default function EquipmentListScreen({ navigation, route }) {
           >
             <Ionicons
               name="navigate-outline"
-              size={16}
-              color={selectedRadius ? '#ffffff' : '#2563eb'}
+              size={15}
+              color={selectedRadius ? COLORS.white : COLORS.primary}
             />
-            <Text style={[styles.chipButtonText, selectedRadius && styles.activeChipText]}>
+            <Text style={[styles.actionPillText, selectedRadius && styles.activeActionPillText]}>
               {selectedRadius ? t('radiusKm', selectedRadius) : t('useCurrentLocation')}
             </Text>
           </TouchableOpacity>
+
+          {/* Sort By Toggle */}
+          <TouchableOpacity
+            style={[styles.actionPill, selectedSort !== 'newest' && styles.activeActionPill]}
+            onPress={() => setShowSortMenu(!showSortMenu)}
+          >
+            <Ionicons
+              name="swap-vertical"
+              size={15}
+              color={selectedSort !== 'newest' ? COLORS.white : COLORS.primary}
+            />
+            <Text style={[styles.actionPillText, selectedSort !== 'newest' && styles.activeActionPillText]}>
+              {t(SORT_OPTIONS.find((s) => s.id === selectedSort)?.labelKey || 'sortNewest')}
+            </Text>
+          </TouchableOpacity>
         </View>
+
+        {/* VIP Tack Sourcing Escrow Ribbon */}
+        <TouchableOpacity
+          testID="equipment-escrow-banner"
+          style={[styles.escrowBanner, isRTL && styles.rowRTL]}
+          onPress={handleHeaderTackHotline}
+          activeOpacity={0.88}
+        >
+          <View style={styles.escrowBannerPulse} />
+          <Ionicons name="shield-checkmark" size={14} color="#D4AF37" />
+          <Text style={[styles.escrowBannerText, isRTL && styles.textRTL]}>
+            {isArabic
+              ? 'جميع صفقات السروج والمعدات الثمينة مؤمنة بحساب الضمان المالي المعتمد'
+              : 'High-value saddle & tack transactions secured via Certified Escrow'}
+          </Text>
+          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={14} color="#8C6D23" />
+        </TouchableOpacity>
+
+        {/* Results summary bar & reset */}
+        <View style={[styles.resultsSummaryRow, isRTL && styles.rowRTL]}>
+          <Text testID="equipment-results-count" style={styles.resultsCountText}>
+            {isArabic ? `${total} نتيجة معتمدة` : `${total} listings found`}
+          </Text>
+
+          {hasActiveFilters && (
+            <View style={[styles.activeFilterGroup, isRTL && styles.rowRTL]}>
+              <View testID="equipment-active-filters-tag" style={[styles.activeFiltersTag, isRTL && styles.rowRTL]}>
+                <Ionicons name="funnel" size={10} color={COLORS.accentDark} style={{ marginRight: isRTL ? 0 : 3, marginLeft: isRTL ? 3 : 0 }} />
+                <Text style={styles.activeFiltersTagText}>
+                  {isArabic ? `فلترة نشطة (${activeFiltersCount})` : `Filtered (${activeFiltersCount})`}
+                </Text>
+              </View>
+              <TouchableOpacity
+                testID="equipment-clear-filters-chip"
+                style={styles.clearChip}
+                onPress={handleClearAllFilters}
+              >
+                <Ionicons name="refresh-outline" size={13} color={COLORS.error} />
+                <Text style={styles.clearChipText}>{t('clearFiltersBtn')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Sort Menu Dropdown */}
+        {showSortMenu && (
+          <View style={styles.sortDropdown}>
+            {SORT_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.id}
+                style={[styles.sortOptionItem, selectedSort === opt.id && styles.sortOptionItemActive]}
+                onPress={() => {
+                  setSelectedSort(opt.id);
+                  setShowSortMenu(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.sortOptionText,
+                    selectedSort === opt.id && styles.sortOptionTextActive,
+                  ]}
+                >
+                  {t(opt.labelKey)}
+                </Text>
+                {selectedSort === opt.id && (
+                  <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
-      {/* Main List */}
+      {/* Main Catalog Feed */}
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       ) : (
         <FlatList
@@ -243,40 +611,105 @@ export default function EquipmentListScreen({ navigation, route }) {
           renderItem={renderEquipmentCard}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#2563eb']} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[COLORS.primary]}
+              tintColor={COLORS.primary}
+            />
           }
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.4}
           ListFooterComponent={
             loadingMore ? (
               <View style={styles.footerLoader}>
-                <ActivityIndicator size="small" color="#2563eb" />
+                <ActivityIndicator size="small" color={COLORS.primary} />
               </View>
             ) : null
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="cube-outline" size={54} color="#cbd5e1" />
-              <Text style={styles.emptyTitle}>
-                {isArabic ? 'لا توجد مستلزمات خيل متاحة' : 'No equipment listings found'}
-              </Text>
-              <Text style={styles.emptySubtitle}>
-                {isArabic
-                  ? 'حاول تعديل خيارات البحث أو تصفية التصنيفات.'
-                  : 'Try adjusting your search query or category filters.'}
-              </Text>
+              <View style={styles.emptyIconCircle}>
+                <BrandMark size={38} />
+              </View>
+              <Text style={styles.emptyTitle}>{t('emptyCatalogTitle')}</Text>
+              <Text style={styles.emptySubtitle}>{t('emptyCatalogSubtitle')}</Text>
+
+              {/* Suggestions */}
+              <View style={styles.suggestionsSection}>
+                <Text style={styles.suggestionsLabel}>{t('popularSuggestionsTitle')}</Text>
+                <View style={styles.suggestionChips}>
+                  {SUGGESTIONS.map((term) => (
+                    <TouchableOpacity
+                      key={term}
+                      testID={`equipment-suggestion-${term.toLowerCase()}`}
+                      style={styles.suggestionChip}
+                      onPress={() => setSearchQuery(term)}
+                    >
+                      <Ionicons name="search-outline" size={12} color={COLORS.primary} />
+                      <Text style={styles.suggestionChipText}>{term}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* VIP Tack Concierge Card */}
+              <View style={styles.conciergeCard}>
+                <View style={[styles.conciergeHeader, isRTL && styles.rowRTL]}>
+                  <Ionicons name="sparkles" size={18} color={COLORS.accent} />
+                  <Text style={[styles.conciergeTitle, isRTL && styles.textRTL]}>
+                    {isArabic ? 'خدمة كونسيرج المستلزمات' : 'VIP Tack Concierge'}
+                  </Text>
+                </View>
+                <Text style={[styles.conciergeText, isRTL && styles.textRTL]}>
+                  {isArabic
+                    ? 'تبحث عن سرج معين، لجام مخصص، أو مقاسات خاصة؟ فريق خبراء ستيد ماركت يساعدك في توريده من أفضل الإسطبلات والموردين.'
+                    : 'Looking for a specific saddle, custom bridle, or rare gear? The SteedMarket concierge team can source it directly across Gulf equestrian hubs.'}
+                </Text>
+                <TouchableOpacity
+                  testID="equipment-empty-concierge-btn"
+                  style={styles.conciergeBtn}
+                  onPress={handleWhatsAppConcierge}
+                >
+                  <Ionicons name="logo-whatsapp" size={16} color={COLORS.white} />
+                  <Text style={styles.conciergeBtnText}>
+                    {isArabic ? 'تواصل مع خبير المستلزمات' : 'Inquire with Tack Specialist'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Actions */}
+              <View style={styles.emptyActionsRow}>
+                {hasActiveFilters && (
+                  <TouchableOpacity
+                    testID="equipment-empty-reset-btn"
+                    style={styles.emptyResetBtn}
+                    onPress={handleClearAllFilters}
+                  >
+                    <Text style={styles.emptyResetBtnText}>{t('clearFiltersBtn')}</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  testID="equipment-empty-post-btn"
+                  style={styles.emptyPostBtn}
+                  onPress={() => navigation.navigate('CreateEquipmentScreen')}
+                >
+                  <Ionicons name="add-circle-outline" size={18} color={COLORS.white} />
+                  <Text style={styles.emptyPostBtnText}>{t('postEquipmentCTA')}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           }
         />
       )}
 
-      {/* Floating Create Button */}
+      {/* Floating Create Equipment Button */}
       <TouchableOpacity
         style={styles.fabButton}
-        activeOpacity={0.85}
+        activeOpacity={0.88}
         onPress={() => navigation.navigate('CreateEquipmentScreen')}
       >
-        <Ionicons name="add" size={28} color="#ffffff" />
+        <Ionicons name="add" size={28} color={COLORS.white} />
       </TouchableOpacity>
 
       {/* Category Picker Modal */}
@@ -300,75 +733,330 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: COLORS.surface,
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 12,
+    paddingTop: 8,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    ...SHADOWS.sm,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   backBtn: {
+    marginRight: 8,
+    padding: 4,
+  },
+  brandIconWrapper: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(197, 160, 89, 0.14)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(197, 160, 89, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 10,
-    padding: 2,
+  },
+  titleColumn: {
+    flex: 1,
+  },
+  vipBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAF5E8',
+    borderWidth: 1,
+    borderColor: '#D4AF37',
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    marginBottom: 2,
+    alignSelf: 'flex-start',
+  },
+  vipPulseDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#10B981',
+    marginRight: 4,
+  },
+  vipBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#8C6D23',
+    letterSpacing: 0.5,
   },
   topBarTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: COLORS.text,
+    color: COLORS.primary,
+  },
+  topBarSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  headerActionsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerHotlineBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: '#A5D6A7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.subtle,
+  },
+  headerCreateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.md,
+    backgroundColor: 'rgba(15, 56, 38, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.35)',
+    gap: 4,
+  },
+  headerCreateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.background,
     borderRadius: RADIUS.md,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    marginBottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: 'rgba(15, 56, 38, 0.12)',
+  },
+  searchSubmitBtn: {
+    padding: 4,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: COLORS.text,
     marginHorizontal: 8,
   },
-  filterChipsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  clearSearchBtn: {
+    padding: 4,
   },
-  chipButton: {
+  inputRTL: {
+    textAlign: 'right',
+  },
+  rowRTL: {
+    flexDirection: 'row-reverse',
+  },
+  textRTL: {
+    textAlign: 'right',
+  },
+  emiratesScroll: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    paddingVertical: 4,
+    gap: 8,
+  },
+  emirateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+    backgroundColor: COLORS.background,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
   },
-  activeChipButton: {
+  activeEmirateChip: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
-  chipButtonText: {
-    fontSize: 13,
+  emirateChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  activeEmirateChipText: {
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  conditionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+    marginTop: 2,
+  },
+  conditionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  activeConditionChip: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  conditionChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  activeConditionChipText: {
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  filterActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
+  actionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 56, 38, 0.06)',
+    borderRadius: 18,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(15, 56, 38, 0.15)',
+  },
+  activeActionPill: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  actionPillText: {
+    fontSize: 12,
     fontWeight: '600',
     color: COLORS.primary,
-    marginLeft: 6,
+    marginLeft: 5,
+    marginRight: 2,
   },
-  activeChipText: {
+  activeActionPillText: {
     color: COLORS.white,
   },
-  chipClose: {
-    marginLeft: 6,
+  pillClose: {
+    marginLeft: 4,
+  },
+  escrowBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(197, 160, 89, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.28)',
+    borderRadius: RADIUS.md,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginTop: 6,
+    marginBottom: 4,
+    gap: 6,
+  },
+  escrowBannerPulse: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#10B981',
+  },
+  escrowBannerText: {
+    flex: 1,
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#8C6D23',
+  },
+  resultsSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(15, 56, 38, 0.06)',
+  },
+  resultsCountText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  activeFilterGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  activeFiltersTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: 'rgba(197, 160, 89, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.3)',
+  },
+  activeFiltersTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.accent,
+  },
+  clearChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    gap: 4,
+  },
+  clearChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.error,
+  },
+  sortDropdown: {
+    marginTop: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingVertical: 4,
+    ...SHADOWS.md,
+  },
+  sortOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  sortOptionItemActive: {
+    backgroundColor: 'rgba(15, 56, 38, 0.05)',
+  },
+  sortOptionText: {
+    fontSize: 13,
+    color: COLORS.text,
+    fontWeight: '500',
+  },
+  sortOptionTextActive: {
+    color: COLORS.primary,
+    fontWeight: '700',
   },
   listContent: {
     padding: 16,
+    paddingBottom: 90,
   },
   card: {
     backgroundColor: COLORS.surface,
@@ -376,39 +1064,83 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: 'rgba(15, 56, 38, 0.08)',
     ...SHADOWS.card,
+  },
+  imageWrapper: {
+    position: 'relative',
+    width: '100%',
+    height: 185,
   },
   cardImage: {
     width: '100%',
-    height: 180,
+    height: '100%',
     backgroundColor: COLORS.skeleton,
+  },
+  cardBadgesRow: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    right: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  categoryBadge: {
+    backgroundColor: 'rgba(15, 56, 38, 0.88)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  categoryBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.accent,
+    letterSpacing: 0.3,
+  },
+  conditionBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.4)',
+    ...SHADOWS.sm,
+  },
+  conditionBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.accent,
+  },
+  brandBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+    ...SHADOWS.sm,
+  },
+  brandBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.text,
   },
   cardBody: {
     padding: 14,
-  },
-  categoryBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.background,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginBottom: 6,
-  },
-  categoryBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.primary,
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.text,
+    lineHeight: 22,
     marginBottom: 4,
   },
   cardBrand: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    fontWeight: '600',
+    color: COLORS.primary,
     marginBottom: 8,
   },
   cardFooter: {
@@ -416,21 +1148,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 4,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
   cardPrice: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     color: COLORS.primary,
+    letterSpacing: 0.2,
   },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    maxWidth: '50%',
+    maxWidth: '55%',
+    gap: 3,
   },
   locationText: {
     fontSize: 12,
+    fontWeight: '500',
     color: COLORS.textSecondary,
-    marginLeft: 4,
   },
   centerContainer: {
     flex: 1,
@@ -443,20 +1180,142 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
+    paddingVertical: 36,
+    paddingHorizontal: 16,
+  },
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(197, 160, 89, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: COLORS.text,
-    marginTop: 14,
+    marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: COLORS.textLight,
+    fontSize: 13,
+    color: COLORS.textSecondary,
     textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  suggestionsSection: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  suggestionsLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  suggestionChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  suggestionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(15, 56, 38, 0.12)',
+    gap: 5,
+  },
+  suggestionChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  conciergeCard: {
+    width: '100%',
+    backgroundColor: '#FAF7F0',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    borderColor: '#E8DCBF',
+    padding: 16,
+    marginBottom: 20,
+    ...SHADOWS.sm,
+  },
+  conciergeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  conciergeTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.primary,
+    letterSpacing: 0.3,
+  },
+  conciergeText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  conciergeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#25D366',
+    borderRadius: RADIUS.md,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 8,
+    ...SHADOWS.sm,
+  },
+  conciergeBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  emptyActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
     marginTop: 6,
+  },
+  emptyResetBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+  },
+  emptyResetBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+  },
+  emptyPostBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
+    gap: 6,
+    ...SHADOWS.sm,
+  },
+  emptyPostBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.white,
   },
   fabButton: {
     position: 'absolute',
@@ -468,10 +1327,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+    ...SHADOWS.md,
+    elevation: 6,
   },
 });
+

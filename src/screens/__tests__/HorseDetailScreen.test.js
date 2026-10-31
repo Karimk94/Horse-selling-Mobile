@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Linking, StyleSheet } from 'react-native';
 import HorseDetailScreen from '../HorseDetailScreen';
 
@@ -95,6 +95,303 @@ describe('HorseDetailScreen seller actions', () => {
 
     fireEvent.press(emailAction);
     expect(openURL).toHaveBeenLastCalledWith('mailto:seller@example.com?subject=Arabian%20horse');
+    openURL.mockRestore();
+  });
+
+  it('renders Smart Equestrian Inquiry Assistant and Trust Shield Cards and launches trial inquiry via WhatsApp', () => {
+    const screen = render(
+      <HorseDetailScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn() }}
+        route={{
+          params: {
+            horse: {
+              id: 'horse-42',
+              title: 'Desert Wind',
+              price: 45000,
+              breed: 'Arabian',
+              gender: 'stallion',
+              images: [],
+              status: 'approved',
+              owner: {
+                email: 'breeder@example.com',
+                phone_number: '+971 55 999 8888',
+                is_verified: true,
+                profile: { first_name: 'Rashid', last_name: 'Al Maktoum', location: 'Abu Dhabi' },
+              },
+            },
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByText('inquiryAssistantTitle')).toBeTruthy();
+    expect(screen.getByText('inquiryTrial')).toBeTruthy();
+    expect(screen.getByText('inquiryVet')).toBeTruthy();
+    expect(screen.getByText('inquiryVideo')).toBeTruthy();
+    expect(screen.getByText('inquiryTransport')).toBeTruthy();
+    expect(screen.getByText('trustShieldTitle')).toBeTruthy();
+    expect(screen.getByText('trustShieldPpeTitle')).toBeTruthy();
+    expect(screen.getByText('trustShieldPassportTitle')).toBeTruthy();
+    expect(screen.getByText('trustShieldContractTitle')).toBeTruthy();
+    expect(screen.getByText('trustShieldEscrowTitle')).toBeTruthy();
+
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+    fireEvent.press(screen.getByText('inquiryTrial'));
+
+    expect(openURL).toHaveBeenCalled();
+    const calledUrl = openURL.mock.calls[0][0];
+    expect(calledUrl).toContain('wa.me/971559998888');
+    expect(decodeURIComponent(calledUrl)).toContain('Desert Wind');
+    openURL.mockRestore();
+  });
+
+  it('renders back button, share button, and floating conformation badges over media', () => {
+    const mockGoBack = jest.fn();
+    const screen = render(
+      <HorseDetailScreen
+        navigation={{ goBack: mockGoBack, navigate: jest.fn() }}
+        route={{
+          params: {
+            horse: {
+              id: 'horse-99',
+              title: 'Royal Sapphire',
+              price: 150000,
+              breed: 'Arabian',
+              gender: 'stallion',
+              age: 5,
+              height: 15.2,
+              images: ['https://example.com/horse1.jpg'],
+              video_url: 'https://youtube.com/watch?v=123',
+              vet_check_available: true,
+              location_text: 'Dubai - Meydan Stables',
+              status: 'approved',
+              owner: {
+                id: 'owner-1',
+                email: 'royal@example.com',
+                phone_number: '+971 50 777 6666',
+                is_verified: true,
+                profile: { first_name: 'Sheikh', last_name: 'Hamdan', location: 'Dubai' },
+              },
+            },
+          },
+        }}
+      />
+    );
+
+    const backButton = screen.getByTestId('horse-detail-back-button');
+    expect(backButton).toBeTruthy();
+    fireEvent.press(backButton);
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+
+    expect(screen.getByTestId('horse-detail-share-button')).toBeTruthy();
+    expect(screen.getByTestId('horse-detail-favorite-button')).toBeTruthy();
+
+    expect(screen.getByTestId('floating-video-badge')).toBeTruthy();
+    expect(screen.getByTestId('floating-vet-badge')).toBeTruthy();
+
+    const emiratePill = screen.getByTestId('horse-emirate-pill');
+    expect(emiratePill).toBeTruthy();
+    expect(screen.getAllByText('Dubai - Meydan Stables').length).toBe(2);
+
+    expect(screen.getByText('#SM-HORSE-')).toBeTruthy();
+  });
+
+  it('handles passport sharing via WhatsApp and native share sheet', async () => {
+    const { Share } = require('react-native');
+    const shareSpy = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
+    const canOpenSpy = jest.spyOn(Linking, 'canOpenURL').mockResolvedValue(true);
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+
+    const screen = render(
+      <HorseDetailScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn() }}
+        route={{
+          params: {
+            horse: {
+              id: 'horse-55',
+              title: 'Silver Star',
+              price: 60000,
+              breed: 'Thoroughbred',
+              gender: 'mare',
+              age: 4,
+              images: [],
+              status: 'approved',
+              owner: {
+                phone_number: '+971 52 111 2222',
+              },
+            },
+          },
+        }}
+      />
+    );
+
+    const whatsappShareBtn = screen.getByTestId('passport-share-whatsapp-btn');
+    fireEvent.press(whatsappShareBtn);
+    await waitFor(() => {
+      expect(canOpenSpy).toHaveBeenCalledWith(expect.stringContaining('whatsapp://send?text='));
+      expect(openURL).toHaveBeenCalled();
+    });
+
+    const exportBtn = screen.getByTestId('passport-export-sheet-btn');
+    fireEvent.press(exportBtn);
+    expect(shareSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Silver Star',
+        message: expect.stringContaining('Silver Star'),
+      })
+    );
+
+    shareSpy.mockRestore();
+    canOpenSpy.mockRestore();
+    openURL.mockRestore();
+  });
+
+  it('triggers vet, video, and transport inquiry presets with enriched WhatsApp messages', () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+
+    const screen = render(
+      <HorseDetailScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn() }}
+        route={{
+          params: {
+            horse: {
+              id: 'horse-77',
+              title: 'Al Noor',
+              price: 85000,
+              breed: 'Arabian',
+              gender: 'gelding',
+              images: [],
+              status: 'approved',
+              owner: {
+                phone_number: '+971 50 333 4444',
+              },
+            },
+          },
+        }}
+      />
+    );
+
+    fireEvent.press(screen.getByTestId('inquiry-chip-vet'));
+    expect(openURL).toHaveBeenLastCalledWith(
+      expect.stringContaining('wa.me/971503334444')
+    );
+    expect(decodeURIComponent(openURL.mock.calls[0][0])).toContain('الفحص البيطري');
+
+    fireEvent.press(screen.getByTestId('inquiry-chip-video'));
+    expect(openURL).toHaveBeenLastCalledWith(
+      expect.stringContaining('wa.me/971503334444')
+    );
+    expect(decodeURIComponent(openURL.mock.calls[1][0])).toContain('فيديو');
+
+    fireEvent.press(screen.getByTestId('inquiry-chip-transport'));
+    expect(openURL).toHaveBeenLastCalledWith(
+      expect.stringContaining('wa.me/971503334444')
+    );
+    expect(decodeURIComponent(openURL.mock.calls[2][0])).toContain('نقل الخيل');
+
+    openURL.mockRestore();
+  });
+
+  it('renders VIP accreditation badge and triggers broker hotline from header button', () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+
+    const screen = render(
+      <HorseDetailScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn() }}
+        route={{
+          params: {
+            horse: {
+              id: 'horse-101',
+              title: 'Kahil Al Shaqab',
+              price: 250000,
+              breed: 'Arabian',
+              gender: 'stallion',
+              images: [],
+              status: 'approved',
+              owner: {
+                phone_number: '+971 50 111 9999',
+              },
+            },
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByTestId('horse-detail-vip-badge')).toBeTruthy();
+    const hotlineBtn = screen.getByTestId('horse-detail-broker-hotline-btn');
+    expect(hotlineBtn).toBeTruthy();
+
+    fireEvent.press(hotlineBtn);
+    expect(openURL).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/971500000000'));
+    expect(decodeURIComponent(openURL.mock.calls[0][0])).toContain('Kahil Al Shaqab');
+    openURL.mockRestore();
+  });
+
+  it('renders certified equine escrow ribbon and triggers consultation on tap', () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+
+    const screen = render(
+      <HorseDetailScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn() }}
+        route={{
+          params: {
+            horse: {
+              id: 'horse-102',
+              title: 'Dubai Millennium',
+              price: 320000,
+              breed: 'Thoroughbred',
+              gender: 'stallion',
+              images: [],
+              status: 'approved',
+              owner: {
+                phone_number: '+971 50 222 8888',
+              },
+            },
+          },
+        }}
+      />
+    );
+
+    const escrowBanner = screen.getByTestId('horse-detail-escrow-banner');
+    expect(escrowBanner).toBeTruthy();
+
+    fireEvent.press(escrowBanner);
+    expect(openURL).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/971500000000'));
+    expect(decodeURIComponent(openURL.mock.calls[0][0])).toContain('Dubai Millennium');
+    openURL.mockRestore();
+  });
+
+  it('triggers escrow and vet inspection inquiry preset via WhatsApp', () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+
+    const screen = render(
+      <HorseDetailScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn() }}
+        route={{
+          params: {
+            horse: {
+              id: 'horse-103',
+              title: 'Marwan Star',
+              price: 180000,
+              breed: 'Arabian',
+              gender: 'colt',
+              images: [],
+              status: 'approved',
+              owner: {
+                phone_number: '+971 50 555 7777',
+              },
+            },
+          },
+        }}
+      />
+    );
+
+    const escrowChip = screen.getByTestId('inquiry-chip-escrow');
+    expect(escrowChip).toBeTruthy();
+
+    fireEvent.press(escrowChip);
+    expect(openURL).toHaveBeenCalledWith(expect.stringContaining('wa.me/971505557777'));
+    expect(decodeURIComponent(openURL.mock.calls[0][0])).toContain('الضمان المالي');
     openURL.mockRestore();
   });
 });

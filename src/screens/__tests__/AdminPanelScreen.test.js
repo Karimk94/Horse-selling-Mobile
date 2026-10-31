@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import AdminPanelScreen from '../AdminPanelScreen';
@@ -100,10 +100,12 @@ describe('AdminPanelScreen purge confirmation', () => {
     jest.clearAllMocks();
     seedAdminPanelData();
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    jest.spyOn(Linking, 'openURL').mockImplementation(() => Promise.resolve());
   });
 
   afterEach(() => {
     Alert.alert.mockRestore();
+    jest.restoreAllMocks();
   });
 
   it('blocks manual purge when typed confirmation is not PURGE', async () => {
@@ -232,4 +234,46 @@ describe('AdminPanelScreen purge confirmation', () => {
 
     expect(Alert.alert).not.toHaveBeenCalledWith('error', 'adminLoadFailed');
   });
+
+  it('navigates to moderation, offer audit, and push logs via operations hub', async () => {
+    seedAdminPanelData();
+    const nav = { navigate: jest.fn() };
+
+    const screen = render(<AdminPanelScreen navigation={nav} initialTab="pending" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('nav-admin-moderation')).toBeTruthy();
+      expect(screen.getByTestId('nav-admin-offer-audit')).toBeTruthy();
+      expect(screen.getByTestId('nav-admin-push-logs')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('nav-admin-moderation'));
+    expect(nav.navigate).toHaveBeenCalledWith('AdminModerationDashboardScreen');
+
+    fireEvent.press(screen.getByTestId('nav-admin-offer-audit'));
+    expect(nav.navigate).toHaveBeenCalledWith('AdminOfferAudit');
+
+    fireEvent.press(screen.getByTestId('nav-admin-push-logs'));
+    expect(nav.navigate).toHaveBeenCalledWith('AdminPushLogs');
+  });
+
+  it('renders executive command header hotline and platform escrow security shield with director inquiry', async () => {
+    seedAdminPanelData();
+    const nav = { navigate: jest.fn() };
+
+    const screen = render(<AdminPanelScreen navigation={nav} initialTab="pending" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('admin-panel-hotline-btn')).toBeTruthy();
+      expect(screen.getByTestId('admin-escrow-security-shield')).toBeTruthy();
+      expect(screen.getByTestId('admin-escrow-director-btn')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('admin-panel-hotline-btn'));
+    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/971500000000'));
+
+    fireEvent.press(screen.getByTestId('admin-escrow-director-btn'));
+    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/971500000000'));
+  });
 });
+

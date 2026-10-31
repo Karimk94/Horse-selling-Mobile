@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 import AdminPushLogsScreen from '../AdminPushLogsScreen';
 import * as apiService from '../../services/api';
 
@@ -30,6 +31,11 @@ jest.mock('../../services/api', () => ({
 describe('AdminPushLogsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Linking, 'openURL').mockImplementation(() => Promise.resolve());
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('loads push delivery logs on focus and renders returned log content', async () => {
@@ -63,6 +69,8 @@ describe('AdminPushLogsScreen', () => {
       expect(screen.getByText('offer_new')).toBeTruthy();
       expect(screen.getByText('Provider: expo')).toBeTruthy();
       expect(screen.getByText('Push gateway failed')).toBeTruthy();
+      expect(screen.getByText('Delivered')).toBeTruthy();
+      expect(screen.getByText('Failed')).toBeTruthy();
     });
   });
 
@@ -90,5 +98,34 @@ describe('AdminPushLogsScreen', () => {
         eventType: 'offer_new',
       });
     });
+  });
+
+  it('calls navigation.goBack when the back button is pressed', () => {
+    const goBack = jest.fn();
+    apiService.adminListPushDeliveryLogs.mockResolvedValue({ data: { total: 0, logs: [] } });
+
+    const screen = render(<AdminPushLogsScreen navigation={{ goBack }} />);
+    fireEvent.press(screen.getByTestId('admin-push-back-btn'));
+
+    expect(goBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders executive command header hotline and push reliability protocol shield with engineer inquiry', async () => {
+    apiService.adminListPushDeliveryLogs.mockResolvedValue({ data: { total: 0, logs: [] } });
+
+    const screen = render(<AdminPushLogsScreen navigation={{ goBack: jest.fn() }} />);
+
+    // Header hotline button
+    await waitFor(() => {
+      expect(screen.getByTestId('admin-push-header-hotline-btn')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('admin-push-header-hotline-btn'));
+    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/971500000000'));
+
+    // Reliability protocol shield card & systems engineer consultation button
+    expect(screen.getByTestId('admin-push-reliability-shield')).toBeTruthy();
+    expect(screen.getByTestId('admin-push-engineer-consult-btn')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('admin-push-engineer-consult-btn'));
+    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/971500000000'));
   });
 });

@@ -14,6 +14,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +23,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, RADIUS, FONTS, SHADOWS } from '../config/theme';
 import { useLanguage } from '../contexts/LanguageContext';
 import HorseCard from '../components/HorseCard';
+import BrandMark from '../components/BrandMark';
 import * as apiService from '../services/api';
 import { extractApiErrorMessage } from '../utils/apiErrors';
 import { useToast } from '../components/ToastProvider';
@@ -72,6 +74,32 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
   const refreshAbortControllerRef = useRef(null);
   const pendingListRef = useRef(null);
   const PURGE_KEYWORD = 'PURGE';
+
+  const handleExecutiveHotline = () => {
+    const isArabic = isRTL;
+    const text = isArabic
+      ? 'مرحباً، أود التواصل مع إدارة العمليات المركزية لمتابعة حالة المنصة والرقابة.'
+      : 'Hello SteedMarket Operations Lead, I need assistance regarding platform operations & oversight.';
+    try {
+      const res = Linking.openURL(`https://wa.me/971500000000?text=${encodeURIComponent(text)}`);
+      if (res && typeof res.catch === 'function') {
+        res.catch(() => {});
+      }
+    } catch (e) {}
+  };
+
+  const handleEscrowDirectorInquiry = () => {
+    const isArabic = isRTL;
+    const text = isArabic
+      ? 'مرحباً، أود التواصل مع مسؤول الرقابة المصرفية وحسابات الضمان بخصوص تدقيق الصفقات.'
+      : 'Hello SteedMarket Escrow Director, I need to consult regarding escrow audit and transaction dispute resolution.';
+    try {
+      const res = Linking.openURL(`https://wa.me/971500000000?text=${encodeURIComponent(text)}`);
+      if (res && typeof res.catch === 'function') {
+        res.catch(() => {});
+      }
+    } catch (e) {}
+  };
 
   useEffect(() => {
     const debounceId = setTimeout(() => {
@@ -169,9 +197,15 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
           force,
           signal: controller.signal,
         }),
-        apiService.adminGetPendingEquipment(0, 1).catch(() => ({ data: { total: 0 } })),
-        apiService.adminGetPendingRiderGear(0, 1).catch(() => ({ data: { total: 0 } })),
-        apiService.adminGetPendingServices(0, 1).catch(() => ({ data: { total: 0 } })),
+        typeof apiService.adminGetPendingEquipment === 'function'
+          ? apiService.adminGetPendingEquipment(0, 1).catch(() => ({ data: { total: 0 } }))
+          : Promise.resolve({ data: { total: 0 } }),
+        typeof apiService.adminGetPendingRiderGear === 'function'
+          ? apiService.adminGetPendingRiderGear(0, 1).catch(() => ({ data: { total: 0 } }))
+          : Promise.resolve({ data: { total: 0 } }),
+        typeof apiService.adminGetPendingServices === 'function'
+          ? apiService.adminGetPendingServices(0, 1).catch(() => ({ data: { total: 0 } }))
+          : Promise.resolve({ data: { total: 0 } }),
       ]);
 
       if (refreshAbortControllerRef.current !== controller) {
@@ -196,7 +230,7 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
         return;
       }
 
-      toast.show(extractApiErrorMessage(err, t('adminLoadFailed')), { type: 'error' });
+      toast?.show?.(extractApiErrorMessage(err, t('adminLoadFailed')), { type: 'error' });
     } finally {
       if (refreshAbortControllerRef.current === controller) {
         refreshAbortControllerRef.current = null;
@@ -511,7 +545,8 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
 
   const handleConfirmPurgeAction = async () => {
     if (purgeConfirmText.trim().toUpperCase() !== PURGE_KEYWORD) {
-      toast.show(t('adminPurgeTypeInvalid'), { type: 'error' });
+      Alert.alert('error', t('adminPurgeTypeInvalid'));
+      toast?.show?.(t('adminPurgeTypeInvalid'), { type: 'error' });
       return;
     }
 
@@ -521,9 +556,13 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
         const res = await apiService.adminPurgeExpiredDeletedListings();
         await refreshAdminData();
         const purgedCount = typeof res.data?.purged_count === 'number' ? res.data.purged_count : 0;
-        toast.show(`${t('adminPurgeExpiredSuccess')}: ${purgedCount}`, { type: 'success' });
+        const msg = `${t('adminPurgeExpiredSuccess')}: ${purgedCount}`;
+        Alert.alert('success', msg);
+        toast?.show?.(msg, { type: 'success' });
       } catch (err) {
-        toast.show(extractApiErrorMessage(err, t('adminActionFailed')), { type: 'error' });
+        const msg = extractApiErrorMessage(err, t('adminActionFailed'));
+        Alert.alert('error', msg);
+        toast?.show?.(msg, { type: 'error' });
       } finally {
         setPurgingExpired(false);
         setPurgeConfirmMode(null);
@@ -541,9 +580,12 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
         await refreshAdminData();
         const { purged_count = 0, not_expired_count = 0 } = res.data || {};
         const message = `${t('deleted')}: ${purged_count}, ${t('notExpired')}: ${not_expired_count}`;
-        toast.show(message, { type: 'success' });
+        Alert.alert('success', message);
+        toast?.show?.(message, { type: 'success' });
       } catch (err) {
-        toast.show(extractApiErrorMessage(err, t('adminActionFailed')), { type: 'error' });
+        const msg = extractApiErrorMessage(err, t('adminActionFailed'));
+        Alert.alert('error', msg);
+        toast?.show?.(msg, { type: 'error' });
       } finally {
         setBulkOperationLoading(false);
         setPurgeConfirmMode(null);
@@ -715,19 +757,43 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
     >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
-      <View style={[styles.header, isRTL && styles.headerRTL]}>
-        <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('adminPanel')}</Text>
-        <Text style={[styles.headerSubtitle, isRTL && styles.textRTL]}>{t('adminPanelSubtitle')}</Text>
+      {/* Executive Command Header */}
+      <View style={[styles.header, isRTL && styles.rowRTL]}>
+        <View style={[styles.headerLeftWrap, isRTL && styles.rowRTL]}>
+          <View style={styles.brandIconWrap}>
+            <BrandMark size={32} />
+          </View>
+          <View style={[styles.headerCopyWrap, isRTL && styles.headerCopyWrapRTL]}>
+            <View style={[styles.portalBadge, isRTL && styles.rowRTL]}>
+              <View style={styles.portalBadgeDot} />
+              <Text style={styles.portalBadgeText}>
+                {isRTL ? 'غرفة العمليات المركزية والرقابة' : 'EXECUTIVE PLATFORM OPERATIONS & AUDIT'}
+              </Text>
+            </View>
+            <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('adminPanel')}</Text>
+            <Text style={[styles.headerSubtitle, isRTL && styles.textRTL]}>{t('adminPanelSubtitle')}</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          testID="admin-panel-hotline-btn"
+          style={styles.headerHotlineBtn}
+          onPress={handleExecutiveHotline}
+          activeOpacity={0.8}
+          accessibilityLabel="Executive Operations WhatsApp Hotline"
+        >
+          <Ionicons name="logo-whatsapp" size={17} color="#25D366" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.statsRow}>
         {[
-          { key: 'users', label: t('adminUsers'), value: stats.users, icon: 'people-outline', colors: ['#0891B2', '#22D3EE'] },
-          { key: 'listings', label: t('adminAllListings'), value: stats.listings, icon: 'list-outline', colors: ['#0F766E', '#34D399'] },
+          { key: 'users', label: t('adminUsers'), value: stats.users, icon: 'people-outline', colors: ['#0F3826', '#1E6B49'] },
+          { key: 'listings', label: t('adminAllListings'), value: stats.listings, icon: 'list-outline', colors: ['#9C7733', '#C5A059'] },
         ].map((card) => (
           <LinearGradient key={card.key} colors={card.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statCard}>
             <View style={styles.statIconWrap}>
-              <Ionicons name={card.icon} size={14} color={COLORS.white} />
+              <Ionicons name={card.icon} size={15} color={COLORS.white} />
             </View>
             <Text style={styles.statNumber}>{card.value}</Text>
             <Text style={styles.statLabel}>{card.label}</Text>
@@ -735,19 +801,141 @@ export default function AdminPanelScreen({ navigation, initialTab = 'pending' })
         ))}
       </View>
 
-      <TouchableOpacity
-        style={[styles.moderationBtn, isRTL && styles.rowRTL]}
-        onPress={() => navigation.navigate('AdminModerationDashboardScreen')}
-      >
-        <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.primary} />
-        <Text style={styles.moderationBtnText}>{t('adminModeration')}</Text>
-        {nonHorsePendingCounts.total > 0 && (
-          <View style={styles.moderationBadge}>
-            <Text style={styles.moderationBadgeText}>{nonHorsePendingCounts.total}</Text>
+      {/* 3-Console Operations Command Center */}
+      <View style={styles.opsHubContainer}>
+        <TouchableOpacity
+          testID="nav-admin-moderation"
+          style={[styles.moderationBtn, isRTL && styles.rowRTL]}
+          onPress={() => navigation.navigate('AdminModerationDashboardScreen')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.hubIconWrap}>
+            <Ionicons name="shield-checkmark" size={20} color={COLORS.primary} />
           </View>
-        )}
-        <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
-      </TouchableOpacity>
+          <View style={styles.hubContentWrap}>
+            <View style={[styles.hubTitleRow, isRTL && styles.rowRTL]}>
+              <Text style={[styles.moderationBtnText, isRTL && styles.textRTL]}>{t('adminModeration')}</Text>
+              {nonHorsePendingCounts.total > 0 && (
+                <View style={styles.moderationBadge}>
+                  <Text style={styles.moderationBadgeText}>{nonHorsePendingCounts.total}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.hubSubtitle, isRTL && styles.textRTL]} numberOfLines={1}>
+              {t('adminModerationSubtitle')}
+            </Text>
+          </View>
+          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+
+        <View style={[styles.hubSubRow, isRTL && styles.rowRTL]}>
+          <TouchableOpacity
+            testID="nav-admin-offer-audit"
+            style={[styles.hubMiniTile, isRTL && styles.rowRTL]}
+            onPress={() => navigation.navigate('AdminOfferAudit')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.hubIconWrapSmall, { backgroundColor: COLORS.accent + '22' }]}>
+              <Ionicons name="receipt-outline" size={16} color={COLORS.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.hubMiniTitle, isRTL && styles.textRTL]} numberOfLines={1}>
+                {t('adminOfferAuditTitle')}
+              </Text>
+              <Text style={[styles.hubMiniSubtitle, isRTL && styles.textRTL]} numberOfLines={1}>
+                {t('adminOfferAuditSubtitle')}
+              </Text>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={14} color={COLORS.textLight} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            testID="nav-admin-push-logs"
+            style={[styles.hubMiniTile, isRTL && styles.rowRTL]}
+            onPress={() => navigation.navigate('AdminPushLogs')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.hubIconWrapSmall, { backgroundColor: COLORS.primaryLight + '22' }]}>
+              <Ionicons name="notifications-outline" size={16} color={COLORS.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.hubMiniTitle, isRTL && styles.textRTL]} numberOfLines={1}>
+                {t('adminPushLogsTitle')}
+              </Text>
+              <Text style={[styles.hubMiniSubtitle, isRTL && styles.textRTL]} numberOfLines={1}>
+                {t('adminPushLogsSubtitle')}
+              </Text>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={14} color={COLORS.textLight} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Executive Platform Security & Escrow Telemetry Shield */}
+        <View testID="admin-escrow-security-shield" style={styles.escrowShieldCard}>
+          <View style={[styles.escrowShieldHeader, isRTL && styles.rowRTL]}>
+            <View style={styles.escrowShieldIconWrap}>
+              <Ionicons name="shield-checkmark" size={18} color={COLORS.accentDark} />
+            </View>
+            <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+              <View style={[styles.escrowBadgeRow, isRTL && styles.rowRTL]}>
+                <View style={styles.escrowPulseDot} />
+                <Text style={styles.escrowBadgeText}>
+                  {isRTL ? 'الرقابة المصرفية وتتبع حسابات الضمان' : 'EXECUTIVE ESCROW & PLATFORM SURVEILLANCE'}
+                </Text>
+              </View>
+              <Text style={[styles.escrowShieldTitle, isRTL && styles.textRTL]}>
+                {isRTL ? 'منظومة الحماية المصرفية وتدقيق الصفقات' : 'Certified Equestrian Escrow & Integrity Custody'}
+              </Text>
+              <Text style={[styles.escrowShieldDesc, isRTL && styles.textRTL]}>
+                {isRTL
+                  ? 'متابعة فورية للعروض الملزمة، شروط التحكيم المصرفي، وسياسات الحذف الآمن والاسترداد'
+                  : 'Live monitoring of binding offers, banking escrow arbitration, and soft-delete retention'}
+              </Text>
+            </View>
+          </View>
+
+          {/* 3 Platform Integrity Pillars */}
+          <View style={styles.escrowPillars}>
+            <View style={[styles.escrowPillarItem, isRTL && styles.rowRTL]}>
+              <View style={styles.escrowPillarIcon}>
+                <Ionicons name="document-lock" size={13} color={COLORS.accentDark} />
+              </View>
+              <Text style={[styles.escrowPillarText, isRTL && styles.textRTL]}>
+                {isRTL ? 'مراقبة عروض الصفقات والضمان' : 'Live Escrow & Offer Audit Surveillance'}
+              </Text>
+            </View>
+            <View style={[styles.escrowPillarItem, isRTL && styles.rowRTL]}>
+              <View style={styles.escrowPillarIcon}>
+                <Ionicons name="time" size={13} color={COLORS.accentDark} />
+              </View>
+              <Text style={[styles.escrowPillarText, isRTL && styles.textRTL]}>
+                {isRTL ? 'سجلات الحذف المؤقت والاسترداد (30 يوماً)' : 'Automated 30-Day Retention & Expiry Purge'}
+              </Text>
+            </View>
+            <View style={[styles.escrowPillarItem, isRTL && styles.rowRTL]}>
+              <View style={styles.escrowPillarIcon}>
+                <Ionicons name="call" size={13} color={COLORS.accentDark} />
+              </View>
+              <Text style={[styles.escrowPillarText, isRTL && styles.textRTL]}>
+                {isRTL ? 'خط ساخن مع كبار الوسطاء والمشرفين' : 'Direct Senior Broker & Admin Hotline'}
+              </Text>
+            </View>
+          </View>
+
+          {/* 1-Tap WhatsApp Operations Escrow Director button */}
+          <TouchableOpacity
+            testID="admin-escrow-director-btn"
+            style={[styles.escrowDirectorBtn, isRTL && styles.rowRTL]}
+            onPress={handleEscrowDirectorInquiry}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="logo-whatsapp" size={15} color="#25D366" />
+            <Text style={styles.escrowDirectorBtnText}>
+              {isRTL ? 'استشارة مدير حسابات الضمان والعمليات' : 'Consult Escrow & Operations Director'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <View style={[styles.tabRow, isRTL && styles.rowRTL]}>
         {[
@@ -1267,18 +1455,184 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 4,
+  },
+  headerLeftWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  portalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(197, 160, 89, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+    alignSelf: 'flex-start',
+    marginBottom: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.28)',
+  },
+  portalBadgeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#10B981',
+    marginRight: 5,
+  },
+  portalBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: COLORS.accentDark,
+    letterSpacing: 0.5,
+  },
+  headerHotlineBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(37, 211, 102, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 211, 102, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  escrowShieldCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginTop: SPACING.xs,
+    borderWidth: 1.5,
+    borderColor: 'rgba(197, 160, 89, 0.3)',
+    ...SHADOWS.small,
+  },
+  escrowShieldHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  escrowShieldIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(197, 160, 89, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.3)',
+  },
+  escrowBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  escrowPulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 6,
+  },
+  escrowBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.accentDark,
+    letterSpacing: 0.5,
+  },
+  escrowShieldTitle: {
+    ...FONTS.h3,
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  escrowShieldDesc: {
+    ...FONTS.bodySmall,
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    lineHeight: 16,
+  },
+  escrowPillars: {
+    gap: 6,
+    paddingVertical: SPACING.xs,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: COLORS.borderLight,
+    marginVertical: SPACING.xs,
+  },
+  escrowPillarItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  escrowPillarIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(197, 160, 89, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  escrowPillarText: {
+    ...FONTS.caption,
+    fontSize: 11,
+    color: COLORS.text,
+    fontWeight: '600',
+    flex: 1,
+  },
+  escrowDirectorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(37, 211, 102, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 211, 102, 0.25)',
+    paddingVertical: 9,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginTop: SPACING.xs,
+  },
+  escrowDirectorBtnText: {
+    ...FONTS.button,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803D',
   },
   headerRTL: {
+    flexDirection: 'row-reverse',
+  },
+  brandIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
+    backgroundColor: '#FAF8F5',
+    borderWidth: 1.5,
+    borderColor: COLORS.accent + '40',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.card,
+  },
+  headerCopyWrap: {
+    flex: 1,
+  },
+  headerCopyWrapRTL: {
     alignItems: 'flex-end',
   },
   headerTitle: {
-    ...FONTS.h1,
+    ...FONTS.h2,
     color: COLORS.primary,
+    fontWeight: '800',
   },
   headerSubtitle: {
-    ...FONTS.bodySmall,
+    ...FONTS.caption,
     color: COLORS.textSecondary,
     marginTop: 2,
   },
@@ -1288,18 +1642,82 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     marginBottom: SPACING.sm,
   },
+  opsHubContainer: {
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.xs,
+    gap: SPACING.xs,
+  },
   moderationBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.sm,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm + 2,
     borderRadius: RADIUS.md,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.primary + '25',
+    ...SHADOWS.card,
+  },
+  hubIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primaryLight + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hubContentWrap: {
+    flex: 1,
+  },
+  hubTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  moderationBtnText: {
+    ...FONTS.body,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  hubSubtitle: {
+    ...FONTS.caption,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  hubSubRow: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+  },
+  hubMiniTile: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs + 2,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    ...SHADOWS.card,
+  },
+  hubIconWrapSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hubMiniTitle: {
+    ...FONTS.caption,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  hubMiniSubtitle: {
+    ...FONTS.caption,
+    fontSize: 10,
+    color: COLORS.textSecondary,
   },
   moderationBtnText: {
     flex: 1,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import AdminOfferAuditScreen from '../AdminOfferAuditScreen';
 import * as apiService from '../../services/api';
@@ -25,10 +25,12 @@ describe('AdminOfferAuditScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    jest.spyOn(Linking, 'openURL').mockImplementation(() => Promise.resolve());
   });
 
   afterEach(() => {
     Alert.alert.mockRestore();
+    jest.restoreAllMocks();
   });
 
   it('shows a validation alert for invalid offer ids and avoids the API call', async () => {
@@ -116,5 +118,38 @@ describe('AdminOfferAuditScreen', () => {
         toStatus: 'accepted',
       });
     });
+  });
+
+  it('calls navigation.goBack when the back button is pressed', () => {
+    const goBack = jest.fn();
+    const screen = render(
+      <AdminOfferAuditScreen
+        navigation={{ goBack }}
+        route={{ params: {} }}
+      />
+    );
+
+    fireEvent.press(screen.getByTestId('admin-audit-back-btn'));
+    expect(goBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders executive command header hotline and offer escrow audit shield with arbitrator inquiry', async () => {
+    const screen = render(
+      <AdminOfferAuditScreen
+        navigation={{ goBack: jest.fn() }}
+        route={{ params: {} }}
+      />
+    );
+
+    // Header hotline button
+    expect(screen.getByTestId('admin-audit-header-hotline-btn')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('admin-audit-header-hotline-btn'));
+    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/971500000000'));
+
+    // Escrow audit shield card & arbitrator consultation button
+    expect(screen.getByTestId('admin-offer-audit-shield')).toBeTruthy();
+    expect(screen.getByTestId('admin-audit-escrow-consult-btn')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('admin-audit-escrow-consult-btn'));
+    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/971500000000'));
   });
 });
